@@ -30,6 +30,10 @@ export interface ReservationExpiredApiError extends BaseApiError {
   readonly cartItemId: string
 }
 
+export interface EmptyCartApiError extends BaseApiError {
+  readonly code: 'EMPTY_CART'
+}
+
 export interface InsufficientStockApiError extends BaseApiError {
   readonly code: 'INSUFFICIENT_STOCK'
   readonly shortages: readonly {
@@ -53,6 +57,7 @@ export type ApiError =
   | ConflictApiError
   | IdempotencyConflictApiError
   | ReservationExpiredApiError
+  | EmptyCartApiError
   | InsufficientStockApiError
   | TransientApiError
   | InternalApiError

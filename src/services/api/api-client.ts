@@ -1,6 +1,12 @@
 import type { ApiResponse } from '../../domain/types/api'
 import type { Menu } from '../../domain/types/menu'
 import type {
+  CheckoutRequest,
+  CheckoutResponse,
+  OrdersExport,
+  OrdersSnapshot,
+} from '../../domain/types/order'
+import type {
   AddCartItemRequest,
   CartItemMutationResponse,
   CartSnapshot,
@@ -88,6 +94,18 @@ export class ApiClient {
 
   expireReservations(): Promise<ApiResponse<ExpireReservationsResponse>> {
     return this.post(apiEndpoints.expireReservations, {})
+  }
+
+  checkout(request: CheckoutRequest): Promise<ApiResponse<CheckoutResponse>> {
+    return this.post(apiEndpoints.checkout, request)
+  }
+
+  getOrders(): Promise<ApiResponse<OrdersSnapshot>> {
+    return this.get(apiEndpoints.orders)
+  }
+
+  getOrdersExport(): Promise<ApiResponse<OrdersExport>> {
+    return this.get(apiEndpoints.ordersExport)
   }
 
   previewPrice(

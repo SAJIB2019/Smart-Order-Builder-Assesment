@@ -13,4 +13,5 @@ export const serverClock = new ServerClock()
 export const handlers = createApiHandlers({
   store: mockStore,
   clock: serverClock,
+  seedOrders: buildYourBreakfastFixture.seedOrders,
 })

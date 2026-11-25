@@ -1,8 +1,10 @@
 import { poisha } from '../../domain/types/money'
 import type { MockApiFixture } from './mock-api-fixture'
+import { officialSeedOrders } from './orders-seed'
 
 /** The sole assessment-specific fixture, transcribed from the PDF. */
 export const buildYourBreakfastFixture: MockApiFixture = {
+  seedOrders: officialSeedOrders,
   menu: {
     product: {
       id: 'build-your-breakfast',

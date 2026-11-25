@@ -15,6 +15,7 @@ export function createInitialMockStoreState(
     cartItems: [],
     reservations: [],
     orders: [],
+    seedOrdersSchemaVersion: null,
     idempotencyRecords: [],
   }
 }

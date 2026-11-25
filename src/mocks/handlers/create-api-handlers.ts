@@ -6,6 +6,7 @@ import type {
   EditCartItemRequest,
 } from '../../domain/types/cart'
 import type { Menu } from '../../domain/types/menu'
+import type { CheckoutRequest, SeedOrdersFile } from '../../domain/types/order'
 import { priceCart } from '../../domain/pricing/price-cart'
 import type {
   PricePreviewRequest,
@@ -17,6 +18,7 @@ import {
   type PricePreviewSimulation,
 } from '../services/price-preview-simulation'
 import { CartService, type CartServiceOutcome } from '../services/cart-service'
+import { OrderService } from '../services/order-service'
 import type { ServerClock } from '../services/server-clock'
 import type { MockStore } from '../store/mock-store'
 
@@ -25,6 +27,8 @@ interface MockApiDependencies {
   readonly clock: ServerClock
   readonly priceSimulation?: PricePreviewSimulation
   readonly cartService?: CartService
+  readonly seedOrders: SeedOrdersFile
+  readonly orderService?: OrderService
 }
 
 function success<T>(
@@ -44,6 +48,8 @@ export function createApiHandlers({
   clock,
   priceSimulation = createPricePreviewSimulation(),
   cartService = new CartService({ store, clock }),
+  seedOrders,
+  orderService = new OrderService({ store, clock, seedOrders }),
 }: MockApiDependencies): RequestHandler[] {
   return [
     http.get('*/api/menu', async () => {
@@ -85,6 +91,18 @@ export function createApiHandlers({
     ),
     http.post('*/api/reservations/expire', async () =>
       cartApiResponse(await cartService.expireReservations()),
+    ),
+    http.get('*/api/orders', async () =>
+      cartApiResponse(await orderService.getOrders()),
+    ),
+    http.get('*/api/orders/export', async () =>
+      cartApiResponse(await orderService.getOrdersExport()),
+    ),
+    http.post('*/api/checkout', async ({ request }) =>
+      cartApiResponse(
+        await orderService.checkout((await request.json()) as CheckoutRequest),
+        201,
+      ),
     ),
     http.post('*/price', async ({ request }) => {
       const body = (await request.json()) as PricePreviewRequest
@@ -170,6 +188,7 @@ function errorStatus(code: string): number {
   if (code === 'VALIDATION_ERROR') return 400
   if (code === 'NOT_FOUND') return 404
   if (code === 'INSUFFICIENT_STOCK') return 409
+  if (code === 'EMPTY_CART') return 409
   if (
     code === 'CONFLICT' ||
     code === 'IDEMPOTENCY_CONFLICT' ||

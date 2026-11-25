@@ -1,9 +1,9 @@
 import type { CartItem, Reservation } from '../../domain/types/cart'
 import type { Menu } from '../../domain/types/menu'
-import type { Order } from '../../domain/types/order'
+import type { StoredOrder } from '../../domain/types/order'
 import type { StockSnapshot } from '../../domain/types/stock'
 
-export interface IdempotencyRecord {
+export interface AddCartItemIdempotencyRecord {
   readonly key: string
   readonly operation: 'addCartItem'
   readonly requestFingerprint: string
@@ -11,13 +11,24 @@ export interface IdempotencyRecord {
   readonly reservationId: string
 }
 
+export interface CheckoutIdempotencyRecord {
+  readonly key: string
+  readonly operation: 'checkout'
+  readonly requestFingerprint: string
+  readonly orderId: string
+}
+
+export type IdempotencyRecord =
+  AddCartItemIdempotencyRecord | CheckoutIdempotencyRecord
+
 export interface MockStoreState {
   version: number
   menu: Menu
   stock: StockSnapshot
   cartItems: readonly CartItem[]
   reservations: readonly Reservation[]
-  orders: readonly Order[]
+  orders: readonly StoredOrder[]
+  seedOrdersSchemaVersion: number | null
   idempotencyRecords: readonly IdempotencyRecord[]
 }
 

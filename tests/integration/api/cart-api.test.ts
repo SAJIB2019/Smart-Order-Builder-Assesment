@@ -25,7 +25,14 @@ describe('cart and reservation mock API', () => {
         reservationId: () => `reservation-${++id}`,
       },
     })
-    server.use(...createApiHandlers({ store, clock, cartService }))
+    server.use(
+      ...createApiHandlers({
+        store,
+        clock,
+        cartService,
+        seedOrders: buildYourBreakfastFixture.seedOrders,
+      }),
+    )
 
     expect(success(await apiClient.getCart()).items).toEqual([])
     const addedResponse = await apiClient.addCartItem({

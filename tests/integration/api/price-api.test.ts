@@ -17,6 +17,7 @@ describe('POST /price', () => {
     server.use(
       ...createApiHandlers({
         store: createInMemoryMockStore(buildYourBreakfastFixture),
+        seedOrders: buildYourBreakfastFixture.seedOrders,
         clock: new ServerClock(
           { now: () => Date.parse('2026-11-25T04:59:59.000Z') },
           0,
@@ -64,6 +65,7 @@ describe('POST /price', () => {
     server.use(
       ...createApiHandlers({
         store: createInMemoryMockStore(buildYourBreakfastFixture),
+        seedOrders: buildYourBreakfastFixture.seedOrders,
         clock: new ServerClock({ now: () => 0 }, 0),
         priceSimulation: {
           latencyMs: () => 0,

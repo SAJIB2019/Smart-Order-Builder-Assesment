@@ -22,7 +22,10 @@ import type {
 } from '../../domain/types/cart'
 import type { StockSnapshot } from '../../domain/types/stock'
 import type { ServerClock } from './server-clock'
-import type { IdempotencyRecord, MockStoreState } from '../store/mock-store'
+import type {
+  AddCartItemIdempotencyRecord,
+  MockStoreState,
+} from '../store/mock-store'
 import type { MockStore } from '../store/mock-store'
 
 const RESERVATION_LIFETIME_MS = 5 * 60 * 1_000
@@ -86,7 +89,7 @@ export class CartService {
   getCart(): Promise<CartServiceOutcome<CartSnapshot>> {
     return this.inTransaction((draft, serverTime) => ({
       ok: true,
-      data: toCartSnapshot(draft, serverTime),
+      data: createCartSnapshot(draft, serverTime),
     }))
   }
 
@@ -104,7 +107,9 @@ export class CartService {
 
       const fingerprint = createAddFingerprint(request)
       const existingRecord = draft.idempotencyRecords.find(
-        (record) => record.key === request.idempotencyKey,
+        (record): record is AddCartItemIdempotencyRecord =>
+          record.key === request.idempotencyKey &&
+          record.operation === 'addCartItem',
       )
 
       if (existingRecord) {
@@ -180,7 +185,7 @@ export class CartService {
           Date.parse(serverTime) + RESERVATION_LIFETIME_MS,
         ).toISOString(),
       }
-      const idempotencyRecord: IdempotencyRecord = {
+      const idempotencyRecord: AddCartItemIdempotencyRecord = {
         key: request.idempotencyKey,
         operation: 'addCartItem',
         requestFingerprint: fingerprint,
@@ -201,7 +206,7 @@ export class CartService {
         data: {
           item,
           reservation,
-          cart: toCartSnapshot(draft, serverTime),
+          cart: createCartSnapshot(draft, serverTime),
           replayed: false,
         },
       }
@@ -305,7 +310,7 @@ export class CartService {
         data: {
           item,
           reservation,
-          cart: toCartSnapshot(draft, serverTime),
+          cart: createCartSnapshot(draft, serverTime),
           replayed: false,
         },
       }
@@ -357,7 +362,7 @@ export class CartService {
         ok: true,
         data: {
           removedCartItemId: cartItemId,
-          cart: toCartSnapshot(draft, serverTime),
+          cart: createCartSnapshot(draft, serverTime),
         },
       }
     })
@@ -370,7 +375,7 @@ export class CartService {
       ok: true,
       data: {
         expiredReservationIds,
-        cart: toCartSnapshot(draft, serverTime),
+        cart: createCartSnapshot(draft, serverTime),
       },
     }))
   }
@@ -420,7 +425,7 @@ export class CartService {
   }
 }
 
-function toCartSnapshot(
+export function createCartSnapshot(
   state: MockStoreState,
   serverTime: string,
 ): CartSnapshot {
@@ -450,7 +455,7 @@ function toCartSnapshot(
 
 function replayAdd(
   state: MockStoreState,
-  record: IdempotencyRecord,
+  record: AddCartItemIdempotencyRecord,
   serverTime: string,
 ): CartServiceResult<CartItemMutationResponse> {
   const item = state.cartItems.find(
@@ -468,7 +473,7 @@ function replayAdd(
     data: {
       item,
       reservation,
-      cart: toCartSnapshot(state, serverTime),
+      cart: createCartSnapshot(state, serverTime),
       replayed: true,
     },
   }
