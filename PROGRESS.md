@@ -4,20 +4,20 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 
 ## Current state
 
-**Phase:** Part C pure pricing engine complete; mock price endpoint and UI integration remain pending.
+**Phase:** Part C complete, including asynchronous mock price previews and TC-12.
 
 | Area | Status | Evidence / next gate |
 |---|---|---|
 | Source review | Complete | All 4 scanned PDF pages visually inspected; `orders.seed.json` inspected. |
 | Planning documents | Complete | `AGENTS.md`, `REQUIREMENTS.md`, `IMPLEMENTATION_PLAN.md`, `DECISIONS.md`, `PROGRESS.md`. |
 | Project foundation | Complete | React 19, strict TypeScript, Vite, MSW browser/Node wiring, Vitest/RTL, ESLint, Prettier, coverage, and lightweight CSS. |
-| Domain/API foundation | Complete | Generic domain contracts, exact Appendix A/Part C fixture, menu/stock endpoints, typed client, injectable server clock, and mock-store boundary. |
+| Domain/API foundation | Complete | Generic domain contracts, exact Appendix A/Part C fixture, menu/stock/price endpoints, typed client, injectable server clock, and mock-store boundary. |
 | D1–D6 | Partial | D2 is resolved with checkout price locking. D1 remains a review draft; D3–D6 remain unresolved. |
 | C1 | Complete | Integer-poisha risk and TC-06 VAT half-up working documented before pricing code. |
 | C2 | Unresolved | Must be completed before Gemini integration. |
 | Part A | Complete (engine) | Pure generic validation, UI-ready result, alternate-fixture coverage, and TC-01–TC-04 pass. Builder-button wiring remains part of the future UI feature. |
 | Part B | Complete (domain engine) | Shared ingredient calculations, finite/unlimited capacity, shortages, net-difference edits, atomic immutable results, and TC-08–TC-11 domain coverage pass. API/UI transaction wiring remains for Part D; D1 is still unapproved. |
-| Part C | Complete (domain engine) | Pure six-step engine, exact rounding, coupon audit data, historical Asia/Dhaka time, and TC-05–TC-07 pass. Mock `/price`, async race handling, and pricing UI remain pending. |
+| Part C | Complete | Pure six-step engine, typed `/price`, exact simulated latency/failure defaults, debounced race-safe hook, Retry/preserved configuration UI, pricing breakdown, and TC-05–TC-07/TC-12 pass. |
 | Part D | Not started | Reservations; D3 gate applies. |
 | Part E | Not started | Checkout/orders; D4 and D6 gates apply. |
 | Part F | Not started | Sales assistant; C2 and D5 gates apply. |
@@ -91,6 +91,15 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 - Added exact official acceptance coverage: TC-05 A = 38,000, B = 67,950, C = 49,000 poisha; TC-06 payable = 158,500 poisha; TC-07 payable = 163,700 poisha.
 - Investigated one initial unit-test discrepancy: Omelette ×2 consumes four egg ingredients but counts as only two Eggs-group units, so the combo correctly remained ineligible until Fried ×2 was added to meet the configured group threshold.
 
+### 2026-11-25 — Part C asynchronous price preview
+
+- Added typed `POST /price`, which calls the existing pure `priceCart` engine with the mock store's menu/promotions and injectable server clock.
+- Added exact production-like defaults of 200–1500 ms latency and 15% failure, with an injectable simulation boundary so tests never depend on uncontrolled randomness.
+- Added a reusable 300 ms debounced `usePricePreview` hook with explicit idle/debouncing/loading/success/error request state and none/current/stale preview freshness.
+- Combined `AbortController` cleanup with monotonic generations, canonical configuration keys, and echoed request IDs. Identity checks remain authoritative if cancellation is ignored or responses resolve out of order.
+- Added a data-driven minimal order builder that loads menu groups/options through the mock API, retains configuration independently from preview failures, offers Retry, hides stale amounts, and renders the engine-produced pricing breakdown.
+- Added endpoint, simulation, hook, UI, cleanup, and exact TC-12 tests covering debounce, rapid changes, out-of-order responses, cancellation, failure, Retry, configuration preservation, and unmounting.
+
 ## Verification log
 
 | Date | Check | Result |
@@ -131,6 +140,13 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 | 2026-11-25 | Part C `npm run format:check` | Passed. |
 | 2026-11-25 | Part C `npm run test:coverage` | Passed: 92.85% statements, 86.8% branches, 96.03% functions, 93.66% lines overall; pricing domain 92.02% statements and 100% functions. |
 | 2026-11-25 | Part C `npm run build` | Passed; Vite production bundle generated successfully. |
+| 2026-11-25 | Async preview focused tests | Passed: 4 files, 13 deterministic tests including TC-12. |
+| 2026-11-25 | Async preview full `npm run test` | Passed: 16 files, 89 tests. |
+| 2026-11-25 | Async preview `npm run typecheck` | Passed with all strict flags. |
+| 2026-11-25 | Async preview `npm run lint` | Passed with zero warnings. |
+| 2026-11-25 | Async preview `npm run test:coverage` | Passed: 91.68% statements, 81.68% branches, 93.82% functions, 92.39% lines overall. |
+| 2026-11-25 | Async preview `npm run build` | Passed; Vite production bundle generated successfully. |
+| 2026-11-25 | Async preview `npm run format:check` | Passed. |
 
 ## Next step (wait for user instruction)
 

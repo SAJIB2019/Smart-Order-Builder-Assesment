@@ -49,14 +49,14 @@ Reference examples: Scrambled ×1 + Fried ×1 is valid; Scrambled ×3 violates E
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
 | C-01 | Complete checkpoint C1 before writing `priceCart`. | `DECISIONS.md` | Review | Complete — float risk and TC-06's 7,547.5 → 7,548 poisha VAT calculation were documented in a prerequisite commit. |
-| C-02 | Implement pure `priceCart(cart, menu, promos, serverTime)`, shared by mock server and tests. | `domain/pricing` | Unit tests | Complete — pure typed engine implemented; mock `/price` wiring remains C-07. |
+| C-02 | Implement pure `priceCart(cart, menu, promos, serverTime)`, shared by mock server and tests. | `domain/pricing` | Unit tests | Complete — the typed engine is shared directly by unit tests and the mock `/price` handler. |
 | C-03 | All money is integer poisha. | Money helpers/pricing | Type/review + exact tests | Complete — public amounts are branded poisha and ratio calculations use exact integer/BigInt half-up arithmetic. |
 | C-04 | Apply the six pricing steps in the exact order below. | `domain/pricing` | TC-05–TC-07 + ANSWERS tests | Complete — unit subtotal, P2, P1, line multiplication, exclusive cart discount, VAT, and final rounding are ordered and tested. |
 | C-05 | Each percentage calculation rounds half-up to nearest poisha; only final payable rounds half-up to whole BDT. | Money helpers | Boundary tests + TC-06/07 | Complete — dedicated rounding helpers and boundary assertions pass. |
-| C-06 | UI shows subtotal, each discount, VAT, and payable. | Pricing summary UI | RTL | Pending |
-| C-07 | Configuration price is returned by mock `/price`, debounced 300 ms, with simulated 200–1500 ms latency and 15% random failure. | Price API + builder query | Fake timers/injected RNG | Pending |
-| C-08 | Stale price responses never replace a newer configuration price; cancel and/or compare request IDs. | Builder price coordinator | TC-12 | Pending |
-| C-09 | On preview failure, retain the configuration and offer Retry. | Builder UI | RTL | Pending |
+| C-06 | UI shows subtotal, each discount, VAT, and payable. | Pricing summary UI | RTL | Complete — the minimal builder renders API-produced subtotal, per-unit and cart discounts, VAT, and payable without recalculating prices in React. |
+| C-07 | Configuration price is returned by mock `/price`, debounced 300 ms, with simulated 200–1500 ms latency and 15% random failure. | Price API + builder query | Fake timers/injected RNG | Complete — typed endpoint and hook use exact defaults; latency/failure sources and tests are deterministic by injection. |
+| C-08 | Stale price responses never replace a newer configuration price; cancel and/or compare request IDs. | Builder price coordinator | TC-12 | Complete — abort plus generation, configuration-key, and echoed request-ID checks pass reversed-response TC-12 even when cancellation is ignored. |
+| C-09 | On preview failure, retain the configuration and offer Retry. | Builder UI | RTL | Complete — configuration ownership is independent of preview state; failure UI retains selections and retries the same cart immediately. |
 | C-10 | Resolve D2: lock price at Add to Cart, checkout, or never; implementation must remain consistent with TC-06/TC-07. | `DECISIONS.md` + orders/pricing | Decision/code consistency | Complete — checkout lock chosen; previews remain server-time estimates and TC-06/TC-07 demonstrate the cutoff behavior. |
 
 Exact pricing order:
@@ -181,7 +181,7 @@ Canonical configurations:
 | TC-09 | In that cart, edit B to Omelette ×3 + Fried ×1 | Blocked: `Short: 1 egg` (B's own 6 eggs counted as available) | Domain net-difference portion complete; server integration pending |
 | TC-10 | In that cart, edit B to Omelette ×1 + Fried ×3 | Allowed; B becomes 643.50; egg remaining becomes 1 | Stock and generic pricing domain capabilities complete; combined server integration remains pending |
 | TC-11 | In that cart, change C quantity 2 → 3 | Blocked: `Short: 2 egg, 2 cheese` (all shortages listed) | Domain net-difference portion complete; server integration pending |
-| TC-12 | Pricing responses return out of order | Only the latest configuration's price is ever displayed | Fake-timer RTL/integration |
+| TC-12 | Pricing responses return out of order | Only the latest configuration's price is ever displayed | Complete — fake-timer hook acceptance test resolves the newer request first, then the ignored-abort older request, without replacing the latest price |
 | TC-13 | Add to Cart clicked 3 times quickly | Exactly one cart item and one reservation | Idempotency integration |
 | TC-14 | Reserve call fails mid-way | No stock is held; configuration is kept; Retry works | Transaction integration + RTL |
 | TC-15 | Reservation passes 5:00 (server time) | Stock released; item read-only; countdown matched server, not browser | Fake-clock integration/RTL |
@@ -205,7 +205,7 @@ Full unresolved prompts and completion criteria live in `DECISIONS.md`.
 | D4 | Order ID/timestamp authority and Pay idempotency | Part E checkout | Unresolved |
 | D5 | Unsupported “best customer” query | Part F assistant safety | Unresolved |
 | D6 | Stored-order JSON schema and entered-but-not-applied coupon | Part E persistence/export | Unresolved |
-| C1 | Float risk and hand rounding of TC-06 VAT 75.48 | `priceCart` | Unresolved |
+| C1 | Float risk and hand rounding of TC-06 VAT 75.48 | `priceCart` | Complete |
 | C2 | Supported assistant questions mapped to function name/input/output | Gemini integration | Unresolved |
 
 ## ANSWERS.md — all eight required questions
@@ -257,7 +257,7 @@ Every answer must be produced by running the project's own code and include the 
 | Risk | Impact | Mitigation |
 |---|---|---|
 | Floating-point and multi-stage rounding drift | Fails exact TC-05–07 and seed analytics | Integer poisha; explicit half-up helpers; golden and boundary tests; C1 first. |
-| Async races and injected random failures | Stale price or flaky tests | Request IDs/abort; dependency-injected latency/RNG; fake timers. |
+| Async races and injected random failures | Stale price or flaky tests | Implemented: abort plus generation/config/request identity checks; dependency-injected latency/RNG; fake-timer coverage. |
 | Partial or duplicate stock mutations | Phantom holds, overselling, incorrect edit releases | Single server-side transaction function over a snapshot; commit once; idempotency map. |
 | Browser/server clock skew | Incorrect countdown/expiry and TC-15 failure | Compute/store server offset from response; inject clock in domain/service tests. |
 | Cross-tab consistency with browser-only MSW | Lost edits or divergent stock | Shared persistent state plus coordination/versioning; resolve D1; Part G only after A–F. |
