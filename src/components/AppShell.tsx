@@ -12,7 +12,7 @@ export function AppShell({ children }: AppShellProps) {
           <p className="brand-kicker">Smart ordering</p>
           <h1>Smart Order Builder</h1>
         </div>
-        <span className="status-badge">Foundation</span>
+        <span className="status-badge">Pricing preview</span>
       </header>
       <main>{children}</main>
     </div>

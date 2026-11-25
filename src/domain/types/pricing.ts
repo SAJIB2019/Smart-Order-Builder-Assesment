@@ -56,3 +56,13 @@ export interface PricingBreakdown {
   readonly payableBeforeWholeBdtRounding: Poisha
   readonly payable: Poisha
 }
+
+export interface PricePreviewRequest {
+  readonly requestId: string
+  readonly cart: PriceableCart
+}
+
+export interface PricePreviewResponse {
+  readonly requestId: string
+  readonly pricing: PricingBreakdown
+}

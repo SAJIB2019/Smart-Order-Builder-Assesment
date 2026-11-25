@@ -13,7 +13,7 @@ describe('App', () => {
     expect(
       screen.getByRole('heading', {
         level: 2,
-        name: 'Project foundation is ready',
+        name: 'Build your order',
       }),
     ).toBeInTheDocument()
   })
