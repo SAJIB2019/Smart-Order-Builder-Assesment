@@ -14,11 +14,11 @@ Review note: this is a proposed behavior, not the author's final D1 answer. Cros
 
 ## D2 — Price lock timing
 
-**Status: UNRESOLVED — blocks final cart/order pricing semantics in Part C.**
+**Status: RESOLVED — price locks at successful checkout.**
 
 Promotions change while an item sits in the cart (the coupon stops at 11:00). Decide when a price is locked: at Add to Cart, at checkout, or never. The choice must remain consistent with TC-06 and TC-07.
 
-Resolution must distinguish preview, cart display, checkout calculation, stored totals, and seed-order repricing at `createdAt`.
+I will lock the price when checkout succeeds, not when an item is added to the cart. Builder previews and cart totals are estimates recomputed from the current API menu/promotions and authoritative server time, so the same cart receives C2 at 10:59:59 in TC-06 but C1 at exactly 11:00:00 in TC-07. The Pay transaction will call the same pure pricing engine once with its server timestamp and persist that complete breakdown as the order's immutable totals. Later promotion or menu changes will not reprice a stored order, while seed orders will be priced once using each order's historical `createdAt` as required.
 
 ## D3 — Reservation expiry during edit
 
@@ -54,11 +54,13 @@ Resolution must include schema version, IDs/timestamps, line/configuration snaps
 
 ## C1 — Money representation and TC-06 VAT rounding
 
-**Status: UNRESOLVED — hard gate: complete before writing `priceCart`.**
+**Status: COMPLETE — integer-poisha calculation defined before `priceCart`.**
 
 Explain why storing 679.50 as a JavaScript float is risky for TC-06, and show by hand how the VAT of 75.48 in TC-06 is rounded.
 
-Completion requires an integer-poisha explanation and the exact half-up intermediate calculation from discounted subtotal through VAT; code must then use the same rule.
+JavaScript numbers use binary floating point, so many decimal currency fractions cannot be represented exactly; repeated percentage operations can produce values just below or above a half-poisha boundary and make an ordinary `Math.round` produce the wrong assessment result. I will therefore store 679.50 BDT as the exact integer `67,950` poisha and perform each percentage as integer numerator/denominator arithmetic with explicit half-up rounding.
+
+For TC-06, the cart subtotal is 1,659.50 BDT = `165,950` poisha and C2 removes 150.00 BDT = `15,000` poisha, leaving `150,950` poisha. VAT before rounding is `150,950 × 500 / 10,000 = 7,547.5` poisha, so half-up rounding takes the `.5` upward to `7,548` poisha = **75.48 BDT**. The pre-final-round payable is `150,950 + 7,548 = 158,498` poisha = 1,584.98 BDT; final half-up rounding to whole BDT produces `158,500` poisha = **1,585 BDT**.
 
 ## C2 — Assistant question-to-function contract
 
