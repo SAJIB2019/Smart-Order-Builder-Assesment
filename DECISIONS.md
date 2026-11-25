@@ -4,13 +4,11 @@ The PDF requires D1–D6 to be answered in the author's own words (3–6 sentenc
 
 ## D1 — Concurrent stock loss during edit
 
-**Status: DRAFT FOR PERSONAL REVIEW — NOT APPROVED. Part D's conflicting-save UX remains gated.**
+**Status: RESOLVED — shared IndexedDB transaction with preserved client draft.**
 
 Two browser tabs share one server. Tab A is editing an item when tab B takes the last eggs. What does tab A see when it saves, and does the user lose anything they typed?
 
-**Proposed draft:** Each edit request sends the reservation ID and the store version that Tab A last read, and the mock server checks that version plus the net stock change in one atomic operation. If Tab B has already changed stock, Tab A's save changes nothing; the server returns a conflict with the latest version and stock snapshot, and the client revalidates the preserved draft to show the exact shortages. Tab A keeps every unsaved selection, while the existing cart item and reservation remain unchanged, and sees a message such as “Stock changed in another tab. Your changes were not saved. Short: 1 egg.” The user can adjust the preserved draft or retry against the refreshed version; no automatic overwrite or silent draft loss is allowed.
-
-Review note: this is a proposed behavior, not the author's final D1 answer. Cross-tab transport and the save-conflict UI are intentionally not implemented in Part B; approval and the authoritative Part D transaction layer are still required.
+I will keep the authoritative mock-server state in one same-origin IndexedDB record and execute each reserve, edit, remove, or expiry cleanup as one `readwrite` transaction; IndexedDB serializes overlapping writers across tabs, so every operation validates against the latest committed stock. If Tab B takes the last eggs before Tab A saves, Tab A's atomic edit returns every current shortage, while the existing item/reservation stays unchanged and the edit request remains available as the client's unsaved draft. Tab A sees “Stock changed while you were editing. Your changes were not saved. Short: 1 egg,” and can adjust or retry without an automatic overwrite. BroadcastChannel is used only to prompt other tabs to refresh after commits, not as the lock, and this guarantee is limited to tabs in the same browser profile/origin; environments without IndexedDB fall back to explicitly single-context memory rather than pretending to be shared.
 
 ## D2 — Price lock timing
 
@@ -22,11 +20,11 @@ I will lock the price when checkout succeeds, not when an item is added to the c
 
 ## D3 — Reservation expiry during edit
 
-**Status: UNRESOLVED — blocks expiry-during-edit behavior in Part D.**
+**Status: RESOLVED — expire the reservation, preserve the detached draft.**
 
 A reservation expires while the user is in the middle of editing that item. Decide what happens to unsaved changes and what the screen tells the user.
 
-Resolution must respect the rule that an expired item is read-only and removable but not editable, and must define whether/how the draft can be reused as a new configuration.
+At the exact server-time expiry, the server releases the reservation once and the original cart item becomes read-only but remains removable. If an edit is open or its save reaches the server after expiry, the edit is rejected without changing the expired item, while the client keeps the unsaved configuration as a detached draft. The screen tells the user “This reservation expired. Your changes were not saved; the original item is read-only,” and offers to add the preserved draft as a new item with a new idempotency key and a fresh atomic stock check. Reusing the draft never revives or extends the expired reservation.
 
 ## D4 — Order authority and Pay idempotency
 
