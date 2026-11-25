@@ -1,6 +1,10 @@
 import { delay, http, HttpResponse, type RequestHandler } from 'msw'
 
 import type { ApiResponse } from '../../domain/types/api'
+import type {
+  AddCartItemRequest,
+  EditCartItemRequest,
+} from '../../domain/types/cart'
 import type { Menu } from '../../domain/types/menu'
 import { priceCart } from '../../domain/pricing/price-cart'
 import type {
@@ -12,6 +16,7 @@ import {
   createPricePreviewSimulation,
   type PricePreviewSimulation,
 } from '../services/price-preview-simulation'
+import { CartService, type CartServiceOutcome } from '../services/cart-service'
 import type { ServerClock } from '../services/server-clock'
 import type { MockStore } from '../store/mock-store'
 
@@ -19,6 +24,7 @@ interface MockApiDependencies {
   readonly store: MockStore
   readonly clock: ServerClock
   readonly priceSimulation?: PricePreviewSimulation
+  readonly cartService?: CartService
 }
 
 function success<T>(
@@ -37,6 +43,7 @@ export function createApiHandlers({
   store,
   clock,
   priceSimulation = createPricePreviewSimulation(),
+  cartService = new CartService({ store, clock }),
 }: MockApiDependencies): RequestHandler[] {
   return [
     http.get('*/api/menu', async () => {
@@ -53,6 +60,32 @@ export function createApiHandlers({
         success(snapshot.stock, clock.nowIso(), snapshot.version),
       )
     }),
+    http.get('*/api/cart', async () =>
+      cartApiResponse(await cartService.getCart()),
+    ),
+    http.post('*/api/cart/items', async ({ request }) =>
+      cartApiResponse(
+        await cartService.addItem((await request.json()) as AddCartItemRequest),
+        201,
+      ),
+    ),
+    http.put('*/api/cart/items/:cartItemId', async ({ params, request }) =>
+      cartApiResponse(
+        await cartService.editItem(
+          String(params.cartItemId),
+          (await request.json()) as EditCartItemRequest,
+        ),
+      ),
+    ),
+    http.delete('*/api/cart/items/:cartItemId', async ({ params }) =>
+      cartApiResponse(await cartService.removeItem(String(params.cartItemId))),
+    ),
+    http.get('*/api/inventory', async () =>
+      cartApiResponse(await cartService.getInventory()),
+    ),
+    http.post('*/api/reservations/expire', async () =>
+      cartApiResponse(await cartService.expireReservations()),
+    ),
     http.post('*/price', async ({ request }) => {
       const body = (await request.json()) as PricePreviewRequest
       await delay(priceSimulation.latencyMs(body))
@@ -107,4 +140,43 @@ export function createApiHandlers({
       }
     }),
   ]
+}
+
+function cartApiResponse<T>(
+  outcome: CartServiceOutcome<T>,
+  successStatus = 200,
+) {
+  if (outcome.result.ok) {
+    return HttpResponse.json<ApiResponse<T>>(
+      success(outcome.result.data, outcome.serverTime, outcome.stateVersion),
+      { status: successStatus },
+    )
+  }
+
+  return HttpResponse.json<ApiResponse<never>>(
+    {
+      ok: false,
+      error: outcome.result.error,
+      meta: {
+        serverTime: outcome.serverTime,
+        stateVersion: outcome.stateVersion,
+      },
+    },
+    { status: errorStatus(outcome.result.error.code) },
+  )
+}
+
+function errorStatus(code: string): number {
+  if (code === 'VALIDATION_ERROR') return 400
+  if (code === 'NOT_FOUND') return 404
+  if (code === 'INSUFFICIENT_STOCK') return 409
+  if (
+    code === 'CONFLICT' ||
+    code === 'IDEMPOTENCY_CONFLICT' ||
+    code === 'RESERVATION_EXPIRED'
+  ) {
+    return 409
+  }
+  if (code === 'TRANSIENT_ERROR') return 503
+  return 500
 }

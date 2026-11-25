@@ -21,6 +21,15 @@ export interface ConflictApiError extends BaseApiError {
   readonly currentVersion: number
 }
 
+export interface IdempotencyConflictApiError extends BaseApiError {
+  readonly code: 'IDEMPOTENCY_CONFLICT'
+}
+
+export interface ReservationExpiredApiError extends BaseApiError {
+  readonly code: 'RESERVATION_EXPIRED'
+  readonly cartItemId: string
+}
+
 export interface InsufficientStockApiError extends BaseApiError {
   readonly code: 'INSUFFICIENT_STOCK'
   readonly shortages: readonly {
@@ -42,6 +51,8 @@ export type ApiError =
   | ValidationApiError
   | NotFoundApiError
   | ConflictApiError
+  | IdempotencyConflictApiError
+  | ReservationExpiredApiError
   | InsufficientStockApiError
   | TransientApiError
   | InternalApiError

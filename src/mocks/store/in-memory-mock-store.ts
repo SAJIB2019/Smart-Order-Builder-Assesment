@@ -4,20 +4,13 @@ import type {
   MockStoreState,
   StoreTransactionResult,
 } from './mock-store'
-
-function clone<T>(value: T): T {
-  return structuredClone(value)
-}
+import {
+  cloneStoreValue as clone,
+  createInitialMockStoreState,
+} from './create-initial-state'
 
 export function createInMemoryMockStore(fixture: MockApiFixture): MockStore {
-  let state: MockStoreState = {
-    version: 0,
-    menu: clone(fixture.menu),
-    stock: clone(fixture.stock),
-    cartItems: [],
-    reservations: [],
-    orders: [],
-  }
+  let state: MockStoreState = createInitialMockStoreState(fixture)
   const listeners = new Set<(snapshot: MockStoreState) => void>()
 
   return {

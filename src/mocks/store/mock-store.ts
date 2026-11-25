@@ -3,6 +3,14 @@ import type { Menu } from '../../domain/types/menu'
 import type { Order } from '../../domain/types/order'
 import type { StockSnapshot } from '../../domain/types/stock'
 
+export interface IdempotencyRecord {
+  readonly key: string
+  readonly operation: 'addCartItem'
+  readonly requestFingerprint: string
+  readonly cartItemId: string
+  readonly reservationId: string
+}
+
 export interface MockStoreState {
   version: number
   menu: Menu
@@ -10,6 +18,7 @@ export interface MockStoreState {
   cartItems: readonly CartItem[]
   reservations: readonly Reservation[]
   orders: readonly Order[]
+  idempotencyRecords: readonly IdempotencyRecord[]
 }
 
 export interface MockStoreCapabilities {
@@ -34,4 +43,5 @@ export interface MockStore {
     options?: { readonly expectedVersion?: number },
   ): Promise<StoreTransactionResult<T>>
   subscribe(listener: (snapshot: MockStoreState) => void): () => void
+  dispose?(): Promise<void>
 }

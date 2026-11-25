@@ -1,6 +1,14 @@
 import type { ApiResponse } from '../../domain/types/api'
 import type { Menu } from '../../domain/types/menu'
 import type {
+  AddCartItemRequest,
+  CartItemMutationResponse,
+  CartSnapshot,
+  EditCartItemRequest,
+  ExpireReservationsResponse,
+  RemoveCartItemResponse,
+} from '../../domain/types/cart'
+import type {
   PricePreviewRequest,
   PricePreviewResponse,
 } from '../../domain/types/pricing'
@@ -44,6 +52,44 @@ export class ApiClient {
     return this.get(apiEndpoints.stock)
   }
 
+  getCart(): Promise<ApiResponse<CartSnapshot>> {
+    return this.get(apiEndpoints.cart)
+  }
+
+  getInventory(): Promise<ApiResponse<StockSnapshot>> {
+    return this.get(apiEndpoints.inventory)
+  }
+
+  addCartItem(
+    request: AddCartItemRequest,
+  ): Promise<ApiResponse<CartItemMutationResponse>> {
+    return this.post(apiEndpoints.cartItems, request)
+  }
+
+  editCartItem(
+    cartItemId: string,
+    request: EditCartItemRequest,
+  ): Promise<ApiResponse<CartItemMutationResponse>> {
+    return this.send(
+      'PUT',
+      `${apiEndpoints.cartItems}/${encodeURIComponent(cartItemId)}`,
+      request,
+    )
+  }
+
+  removeCartItem(
+    cartItemId: string,
+  ): Promise<ApiResponse<RemoveCartItemResponse>> {
+    return this.send(
+      'DELETE',
+      `${apiEndpoints.cartItems}/${encodeURIComponent(cartItemId)}`,
+    )
+  }
+
+  expireReservations(): Promise<ApiResponse<ExpireReservationsResponse>> {
+    return this.post(apiEndpoints.expireReservations, {})
+  }
+
   previewPrice(
     request: PricePreviewRequest,
     signal?: AbortSignal,
@@ -71,14 +117,24 @@ export class ApiClient {
     request: unknown,
     signal?: AbortSignal,
   ): Promise<ApiResponse<T>> {
+    return this.send('POST', path, request, signal)
+  }
+
+  private async send<T>(
+    method: 'POST' | 'PUT' | 'DELETE',
+    path: string,
+    request?: unknown,
+    signal?: AbortSignal,
+  ): Promise<ApiResponse<T>> {
     const init: RequestInit = {
-      method: 'POST',
+      method,
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(request),
     }
+
+    if (request !== undefined) init.body = JSON.stringify(request)
 
     if (signal) {
       init.signal = signal
