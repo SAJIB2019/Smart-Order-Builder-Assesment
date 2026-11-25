@@ -2,7 +2,7 @@
 
 ## Source and interpretation
 
-This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation, typed domain contracts, official fixture, read-only mock API, and pure Parts A–C domain engines are complete; feature UI and authoritative mutation endpoints remain pending.
+This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation and Parts A–D are complete, including typed mock APIs, pure engines, atomic cart/reservation mutations, and shared same-origin browser state; checkout/orders and the assistant remain pending.
 
 The assessment is a logic assessment, not a design assessment. A plain, clean, responsive UI is sufficient. The primary grading targets are exact Section 9 results, correctness under races/stock pressure/edits, and the developer's ability to explain the decisions and code.
 
@@ -11,7 +11,7 @@ The assessment is a logic assessment, not a design assessment. A plain, clean, r
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
 | G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Partial — React 19, strict TypeScript, Vite, MSW, Vitest/RTL and coverage configured; Gemini integration remains gated by C2. |
-| G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Partial — browser/Node MSW serves typed menu and stock responses; mutation, persistence, and later feature handlers remain pending. |
+| G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Partial — browser/Node MSW now serves menu, stock, pricing, cart, inventory, and reservation operations; checkout/order and assistant handlers remain pending. |
 | G-03 | AI tools are allowed, but every line must be explainable, debuggable, and changeable live. | Entire codebase | Review/interview readiness | Pending |
 | G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Partial — the rules, stock, and pricing engines are data-driven and pass alternate-ID/ingredient/promotion fixtures; UI and later engines remain pending. |
 | G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Partial — assessment-specific definitions remain isolated to the official fixture and none of the completed engines contains assessment-specific branches; later engines/components remain pending. |
@@ -25,7 +25,7 @@ The assessment is a logic assessment, not a design assessment. A plain, clean, r
 |---|---|---|---|---|
 | A-01 | Implement pure, generic `validate(config, groups, rules)`. | `domain/rules` | Unit tests | Complete — pure implementation reads only supplied configuration, groups, and rules. |
 | A-02 | Return all violations, not only the first; each includes group/rule ID and a human-readable message. | `domain/rules` | TC-01–TC-04 + aggregation tests | Complete — typed result aggregates configuration, group, and rule violations deterministically. |
-| A-03 | Disable Add to Cart while any violation exists. | Builder feature | RTL interaction test | Partial — `ValidationResult.canAddToCart` is false whenever violations exist; builder-button wiring awaits the UI step. |
+| A-03 | Disable Add to Cart while any violation exists. | Builder feature | RTL interaction test | Complete — the builder renders all validation messages and disables Add to Cart unless `canAddToCart` is true. |
 | A-04 | Support group `min`, `max`, `step` (total quantity must be a multiple), `maxDistinct`, and `maxPerOption`. | `domain/rules` | Parameterized unit tests | Complete |
 | A-05 | Support `requires`: option X requires at least one of options `[Y, Z]`. | `domain/rules` | TC-03 | Complete |
 | A-06 | Support `excludes`: option X cannot coexist with any option in `[Y, Z]`. | `domain/rules` | TC-04 | Complete |
@@ -37,12 +37,12 @@ Reference examples: Scrambled ×1 + Fried ×1 is valid; Scrambled ×3 violates E
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| B-01 | Options consume configured ingredients; stock is per ingredient and shared across all cart items plus the configuration being built. | `domain/stock` + mock server | TC-08–TC-11 | Partial — pure aggregation/shared-stock calculations and domain acceptance tests are complete; server transaction wiring remains for Part D. |
+| B-01 | Options consume configured ingredients; stock is per ingredient and shared across all cart items plus the configuration being built. | `domain/stock` + mock server | TC-08–TC-11 | Complete — the pure calculations are wired into authoritative atomic cart transactions and exact server-level TC-08–TC-11 coverage. |
 | B-02 | For every option, show the number of additional units currently addable and disable it at zero. | Builder feature | Stock capacity unit tests + RTL | Partial — generic finite/unlimited capacity calculation is complete; builder display/disable behavior remains pending. |
 | B-03 | Cart item quantity is limited to 1–3 and multiplies ingredient usage. | Cart/domain | Unit + RTL tests | Partial — domain runtime guard and multiplication tests are complete; cart UI remains pending. |
-| B-04 | Editing uses net difference; the edited item can reuse its existing allocation, with no double-counting or over-release. | `domain/stock` + cart API | TC-09–TC-11 | Partial — atomic pure net-difference application passes TC-09–TC-11; authoritative cart endpoint remains for Part D. |
-| B-05 | A blocked operation lists every short ingredient and exact missing amount (example: `Short: 2 egg, 2 cheese`). | Stock result/UI | TC-09, TC-11 | Partial — complete structured shortages and exact formatter are implemented; UI rendering remains pending. |
-| B-06 | Resolve D1 before finalizing two-tab save-conflict UX. | `DECISIONS.md` + cart feature | Decision/code consistency test | Blocked by decision D1 — concrete draft recorded for personal review, not approved or implemented. |
+| B-04 | Editing uses net difference; the edited item can reuse its existing allocation, with no double-counting or over-release. | `domain/stock` + cart API | TC-09–TC-11 | Complete — one cart endpoint atomically applies the net difference and preserves the old hold on every failure. |
+| B-05 | A blocked operation lists every short ingredient and exact missing amount (example: `Short: 2 egg, 2 cheese`). | Stock result/UI | TC-09, TC-11 | Complete — API errors contain every structured shortage and the exact combined human-readable message rendered by the client error surface. |
+| B-06 | Resolve D1 before finalizing two-tab save-conflict UX. | `DECISIONS.md` + cart feature | Decision/code consistency test | Complete — D1 uses one same-origin IndexedDB `readwrite` transaction as the cross-tab lock/commit boundary and preserves rejected edit drafts. |
 
 ### Part C — Pricing engine (mandatory)
 
@@ -74,13 +74,13 @@ Exact pricing order:
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| D-01 | Add to Cart includes an idempotency key; double/triple clicks create exactly one cart item. | Cart API/client | TC-13 | Pending |
-| D-02 | Mock server reserves all item ingredients atomically; failure leaves no partial/phantom reservation. | Reservation service | TC-14 | Pending |
-| D-03 | Each reservation lasts five minutes. | Reservation service | TC-15 | Pending |
-| D-04 | Server clock is 90 seconds ahead of browser. Compute offset from `serverTime`; countdown/expiry must not use raw `Date.now()`. | Server-time adapter | Fake clock + TC-15 | Partial — injectable mock-server clock and API `serverTime` metadata are complete; client offset/countdown behavior remains pending. |
-| D-05 | On expiry, release stock and make item read-only; it may be removed but not edited. | Reservation/cart service + UI | TC-15 | Pending |
-| D-06 | Edit is one server call that atomically swaps old and new allocations using Part B net difference. | Cart API | TC-09–TC-11 | Pending |
-| D-07 | Resolve D3 for expiry during an edit, including preservation/discard of unsaved changes and user message. | `DECISIONS.md` + edit UI | Decision/code consistency | Blocked by decision D3 |
+| D-01 | Add to Cart includes an idempotency key; double/triple clicks create exactly one cart item. | Cart API/client | TC-13 | Complete — UI reuses one key for a logical add; the server stores successful keys atomically and replays the original item/reservation. |
+| D-02 | Mock server reserves all item ingredients atomically; failure leaves no partial/phantom reservation. | Reservation service | TC-14 | Complete — rules, allocation, availability, and injected failure checks finish before stock/cart/reservation/idempotency state is assigned. |
+| D-03 | Each reservation lasts five minutes. | Reservation service | TC-15 | Complete — `expiresAt` is exactly server `reservedAt + 300,000 ms`, with exact-boundary tests. |
+| D-04 | Server clock is 90 seconds ahead of browser. Compute offset from `serverTime`; countdown/expiry must not use raw `Date.now()`. | Server-time adapter | Fake clock + TC-15 | Complete — every cart API response includes server time; the client derives and tests the +90-second offset and cleans up its synchronized countdown timer. |
+| D-05 | On expiry, release stock and make item read-only; it may be removed but not edited. | Reservation/cart service + UI | TC-15 | Complete — expiry is idempotent, editing returns `RESERVATION_EXPIRED`, removal remains allowed, and the UI labels expired items read-only. |
+| D-06 | Edit is one server call that atomically swaps old and new allocations using Part B net difference. | Cart API | TC-09–TC-11 | Complete — failed edits preserve the prior item, hold, and stock; successful edits keep the original five-minute deadline. |
+| D-07 | Resolve D3 for expiry during an edit, including preservation/discard of unsaved changes and user message. | `DECISIONS.md` + edit UI | Decision/code consistency | Complete — D3 preserves the detached draft, rejects the edit with explicit guidance, and requires a fresh idempotent add to reserve it again. |
 
 ### Part E — Checkout and orders as JSON (mandatory)
 
@@ -177,14 +177,14 @@ Canonical configurations:
 | TC-05 | Unit price of A, B, C | A = 380.00, B = 679.50, C = 490.00 BDT | Complete — exact acceptance assertions |
 | TC-06 | Cart B ×1 + C ×2, server time 10:59:59 | Subtotal 1,659.50; C2 = 150.00 wins over C1; VAT 75.48; payable **1,585** | Complete — full exact breakdown asserted |
 | TC-07 | Same cart, server time 11:00:00 (coupon entered) | Coupon rejected; C1 = 100.00; VAT 77.98; payable **1,637** | Complete — full exact breakdown and attempted coupon asserted |
-| TC-08 | Cart B ×1 + C ×2: remaining stock | egg 0, cheese 0, croissant 1; any new item needing eggs is blocked with reason | Domain stock portion complete; server integration pending |
-| TC-09 | In that cart, edit B to Omelette ×3 + Fried ×1 | Blocked: `Short: 1 egg` (B's own 6 eggs counted as available) | Domain net-difference portion complete; server integration pending |
-| TC-10 | In that cart, edit B to Omelette ×1 + Fried ×3 | Allowed; B becomes 643.50; egg remaining becomes 1 | Stock and generic pricing domain capabilities complete; combined server integration remains pending |
-| TC-11 | In that cart, change C quantity 2 → 3 | Blocked: `Short: 2 egg, 2 cheese` (all shortages listed) | Domain net-difference portion complete; server integration pending |
+| TC-08 | Cart B ×1 + C ×2: remaining stock | egg 0, cheese 0, croissant 1; any new item needing eggs is blocked with reason | Complete — authoritative reservation/inventory acceptance assertion |
+| TC-09 | In that cart, edit B to Omelette ×3 + Fried ×1 | Blocked: `Short: 1 egg` (B's own 6 eggs counted as available) | Complete — exact server error plus unchanged state assertion |
+| TC-10 | In that cart, edit B to Omelette ×1 + Fried ×3 | Allowed; B becomes 643.50; egg remaining becomes 1 | Complete — atomic edit, exact engine price, and stock assertion |
+| TC-11 | In that cart, change C quantity 2 → 3 | Blocked: `Short: 2 egg, 2 cheese` (all shortages listed) | Complete — ordered complete server shortage assertion |
 | TC-12 | Pricing responses return out of order | Only the latest configuration's price is ever displayed | Complete — fake-timer hook acceptance test resolves the newer request first, then the ignored-abort older request, without replacing the latest price |
-| TC-13 | Add to Cart clicked 3 times quickly | Exactly one cart item and one reservation | Idempotency integration |
-| TC-14 | Reserve call fails mid-way | No stock is held; configuration is kept; Retry works | Transaction integration + RTL |
-| TC-15 | Reservation passes 5:00 (server time) | Stock released; item read-only; countdown matched server, not browser | Fake-clock integration/RTL |
+| TC-13 | Add to Cart clicked 3 times quickly | Exactly one cart item and one reservation | Complete — three concurrent server calls plus rapid-click UI key assertion |
+| TC-14 | Reserve call fails mid-way | No stock is held; configuration is kept; Retry works | Complete — injected pre-commit failure and same-request retry assertion |
+| TC-15 | Reservation passes 5:00 (server time) | Stock released; item read-only; countdown matched server, not browser | Complete — exact expiry, offset countdown, edit rejection, and removal assertion |
 | TC-16 | Pay clicked twice quickly | Exactly one order; cart empty; sold stock is not released again | Checkout idempotency integration |
 | TC-17 | Refresh after checkout, then Download `orders.json` | Orders are still there; file is valid JSON in the shape documented in D6 | Persistence/export integration |
 | TC-18 | Ask bot “How many orders?” after seed load, then after one checkout | The two answers differ by exactly one, with no reload | Stats/Gemini mock integration |
@@ -199,9 +199,9 @@ Full unresolved prompts and completion criteria live in `DECISIONS.md`.
 
 | ID | Topic | Feature gate | Status |
 |---|---|---|---|
-| D1 | Two-tab stock race while editing | Part B save conflict UX | Draft for personal review; not approved |
+| D1 | Two-tab stock race while editing | Part B save conflict UX | Resolved — IndexedDB transaction; draft preserved |
 | D2 | When promotion-sensitive prices lock | Pricing/cart/order semantics | Resolved — successful checkout |
-| D3 | Reservation expiry during edit | Part D edit UX | Unresolved |
+| D3 | Reservation expiry during edit | Part D edit UX | Resolved — expired item read-only; detached draft preserved |
 | D4 | Order ID/timestamp authority and Pay idempotency | Part E checkout | Unresolved |
 | D5 | Unsupported “best customer” query | Part F assistant safety | Unresolved |
 | D6 | Stored-order JSON schema and entered-but-not-applied coupon | Part E persistence/export | Unresolved |
@@ -245,8 +245,8 @@ Every answer must be produced by running the project's own code and include the 
 | AM-04 | `maxDistinct` and `maxPerOption` are specified for Sauce, but generic violation wording/order is not prescribed beyond exact acceptance expectations. | Define deterministic ordering/messages and preserve exact official messages where specified. |
 | AM-05 | Multiple possible `overrideLimit` rules, conflicting overrides, and multiple simultaneous promotions beyond this fixture are not defined. | Part A uses deterministic API order: if multiple active overrides target one group, the last supplied rule wins. The official fixture has only one such rule; revisit only if the API contract is expanded. |
 | AM-06 | “How many more units can be added” can be constrained by stock, group rules, cross-rules, and quantity context; the phrase does not specify whether the number is stock-only. | Prefer the maximum immediately addable under both ingredient stock and current configuration validity, then verify during implementation; document UI semantics. |
-| AM-07 | The exact response contracts/status codes for mock endpoints are unspecified. | Partial: discriminated success/error contracts and read-only menu/stock responses are defined. Mutation-specific status mapping remains pending with those endpoints. |
-| AM-08 | D1 assumes two tabs share one server, while per-tab MSW in-memory state is not inherently shared. | The store contract explicitly reports single-context, memory-only capabilities and supports expected-version transactions. Cross-tab coordination remains unresolved under D1/Part G. |
+| AM-07 | The exact response contracts/status codes for mock endpoints are unspecified. | Resolved for Part D: typed success/error envelopes map validation 400, missing 404, stock/idempotency/expiry conflicts 409, transient 503, and invariant failures 500. Later endpoint families will extend the same contract. |
+| AM-08 | D1 assumes two tabs share one server, while per-tab MSW in-memory state is not inherently shared. | Resolved for mandatory cart mutations: browser MSW handlers use shared same-origin IndexedDB transactions and BroadcastChannel refresh signals; Node/non-IDB fallback remains explicitly single-context. Optional stale-version UX is still Part G. |
 | AM-09 | Price-lock semantics are intentionally open and interact with historical pricing and TC-06/07. | Resolved in D2: previews/cart totals are current estimates; checkout stores the immutable authoritative breakdown; seeds use historical `createdAt`. |
 | AM-10 | Seed initialization identity (“first start”) and reset behavior are unspecified. | Use a schema-versioned persistent store and an explicit test reset path; never append duplicate seed orders. |
 | AM-11 | Browser-to-Gemini calls expose the runtime key to the browser by design for this assessment. | Treat this as assessment-only, use a task-scoped free key, document the production limitation, and never commit it. |
@@ -258,9 +258,9 @@ Every answer must be produced by running the project's own code and include the 
 |---|---|---|
 | Floating-point and multi-stage rounding drift | Fails exact TC-05–07 and seed analytics | Integer poisha; explicit half-up helpers; golden and boundary tests; C1 first. |
 | Async races and injected random failures | Stale price or flaky tests | Implemented: abort plus generation/config/request identity checks; dependency-injected latency/RNG; fake-timer coverage. |
-| Partial or duplicate stock mutations | Phantom holds, overselling, incorrect edit releases | Single server-side transaction function over a snapshot; commit once; idempotency map. |
-| Browser/server clock skew | Incorrect countdown/expiry and TC-15 failure | Compute/store server offset from response; inject clock in domain/service tests. |
-| Cross-tab consistency with browser-only MSW | Lost edits or divergent stock | Shared persistent state plus coordination/versioning; resolve D1; Part G only after A–F. |
+| Partial or duplicate stock mutations | Phantom holds, overselling, incorrect edit releases | Implemented single atomic transaction, commit-after-validation assignments, server idempotency records, and injected-failure tests. |
+| Browser/server clock skew | Incorrect countdown/expiry and TC-15 failure | Implemented response-derived server offset, injected clocks, fake-timer countdown tests, and server-authoritative expiry. |
+| Cross-tab consistency with browser-only MSW | Lost edits or divergent stock | Implemented same-origin IndexedDB write transactions for mandatory mutual exclusion; BroadcastChannel only refreshes readers; cross-device sync is out of scope. |
 | Persisted schema evolution | Duplicate/corrupt seed orders or invalid export | Versioned storage envelope, validation/migration/reset strategy, D6 schema tests. |
 | Gemini nondeterminism, quota, and prompt hallucination | Wrong answers or flaky tests | Closed function/tool registry, code-owned numbers, unsupported-query guard, mocked tests, clear errors. |
 | Data-driven UI accidentally relies on fixture IDs | Fails alternate-menu review | Render groups/options from response; engines use declarative rule/recipe data; alternate fixture tests. |

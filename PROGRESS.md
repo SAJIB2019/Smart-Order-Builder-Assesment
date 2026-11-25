@@ -1,24 +1,24 @@
 # Smart Order Builder — Progress Tracker
 
-Last updated: 2026-11-25 (Asia/Dhaka)
+Last updated: 2026-11-26 (Asia/Dhaka)
 
 ## Current state
 
-**Phase:** Part C complete, including asynchronous mock price previews and TC-12.
+**Phase:** Part D cart and reservations complete, including shared cross-tab transactions and TC-08–TC-15.
 
 | Area | Status | Evidence / next gate |
 |---|---|---|
 | Source review | Complete | All 4 scanned PDF pages visually inspected; `orders.seed.json` inspected. |
 | Planning documents | Complete | `AGENTS.md`, `REQUIREMENTS.md`, `IMPLEMENTATION_PLAN.md`, `DECISIONS.md`, `PROGRESS.md`. |
 | Project foundation | Complete | React 19, strict TypeScript, Vite, MSW browser/Node wiring, Vitest/RTL, ESLint, Prettier, coverage, and lightweight CSS. |
-| Domain/API foundation | Complete | Generic domain contracts, exact Appendix A/Part C fixture, menu/stock/price endpoints, typed client, injectable server clock, and mock-store boundary. |
-| D1–D6 | Partial | D2 is resolved with checkout price locking. D1 remains a review draft; D3–D6 remain unresolved. |
+| Domain/API foundation | Complete | Generic domain contracts, fixture, menu/stock/price/cart/inventory/reservation endpoints, typed client, server clock, and shared IndexedDB store boundary. |
+| D1–D6 | Partial | D1, D2, and D3 are resolved and implemented. D4–D6 remain unresolved for Parts E/F. |
 | C1 | Complete | Integer-poisha risk and TC-06 VAT half-up working documented before pricing code. |
 | C2 | Unresolved | Must be completed before Gemini integration. |
 | Part A | Complete (engine) | Pure generic validation, UI-ready result, alternate-fixture coverage, and TC-01–TC-04 pass. Builder-button wiring remains part of the future UI feature. |
-| Part B | Complete (domain engine) | Shared ingredient calculations, finite/unlimited capacity, shortages, net-difference edits, atomic immutable results, and TC-08–TC-11 domain coverage pass. API/UI transaction wiring remains for Part D; D1 is still unapproved. |
+| Part B | Complete | Shared ingredient calculations and authoritative reservation/edit transactions pass exact TC-08–TC-11, including cross-tab stock pressure. Per-option capacity UI remains a separate builder enhancement. |
 | Part C | Complete | Pure six-step engine, typed `/price`, exact simulated latency/failure defaults, debounced race-safe hook, Retry/preserved configuration UI, pricing breakdown, and TC-05–TC-07/TC-12 pass. |
-| Part D | Not started | Reservations; D3 gate applies. |
+| Part D | Complete | Atomic idempotent add/edit/remove/expiry, five-minute holds, server-offset countdowns, shared IndexedDB transactions, D1/D3, and TC-13–TC-15 pass. |
 | Part E | Not started | Checkout/orders; D4 and D6 gates apply. |
 | Part F | Not started | Sales assistant; C2 and D5 gates apply. |
 | Part G | Gated | Do not start until A–F are correct and tested. |
@@ -100,6 +100,16 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 - Added a data-driven minimal order builder that loads menu groups/options through the mock API, retains configuration independently from preview failures, offers Retry, hides stale amounts, and renders the engine-produced pricing breakdown.
 - Added endpoint, simulation, hook, UI, cleanup, and exact TC-12 tests covering debounce, rapid changes, out-of-order responses, cancellation, failure, Retry, configuration preservation, and unmounting.
 
+### 2026-11-26 — Part D cart and reservations
+
+- Resolved D1 with same-origin IndexedDB `readwrite` transactions as the genuine cross-tab mutual-exclusion and commit boundary; BroadcastChannel only announces commits so other tabs can refresh. Documented the same-browser/origin limitation and explicit single-context fallback when IndexedDB is unavailable.
+- Resolved D3 by expiring the original hold, making the item read-only/removable, rejecting late edits with a clear message, and preserving the caller-owned draft for a new idempotent add.
+- Added typed MSW operations for get cart, add, edit, remove, inventory, and explicit expiry cleanup, with server time and state version metadata on success and failure.
+- Added a server-authoritative cart service that reuses validation, stock, and pricing engines. Add/edit mutations calculate everything before assigning stock, item, reservation, and idempotency state together.
+- Added server-level Add to Cart idempotency records and UI logical-operation key reuse. Replays return the original item/reservation, while a key reused with different input returns a conflict.
+- Added exact five-minute reservations, idempotent stock release, active-item-only price estimates, expired-item removal, edit rejection, and a client countdown derived from the response server/browser offset.
+- Added deterministic injected-failure, fake-clock/timer, API, UI, IndexedDB cross-context, and official TC-08–TC-11/TC-13–TC-15 coverage. `fake-indexeddb` is test-only and production uses the browser's native IndexedDB implementation.
+
 ## Verification log
 
 | Date | Check | Result |
@@ -147,10 +157,17 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 | 2026-11-25 | Async preview `npm run test:coverage` | Passed: 91.68% statements, 81.68% branches, 93.82% functions, 92.39% lines overall. |
 | 2026-11-25 | Async preview `npm run build` | Passed; Vite production bundle generated successfully. |
 | 2026-11-25 | Async preview `npm run format:check` | Passed. |
+| 2026-11-26 | Part D focused tests | Passed: 6 files, 22 deterministic tests covering transactions, API/UI behavior, cross-tab races, countdowns, and TC-08–TC-15. |
+| 2026-11-26 | Part D `npm run typecheck` | Passed with all strict flags. |
+| 2026-11-26 | Part D `npm run lint` | Passed with zero warnings. |
+| 2026-11-26 | Part D full `npm run test` | Passed: 22 files, 111 tests. |
+| 2026-11-26 | Part D `npm run test:coverage` | Passed: 81.57% statements, 69.05% branches, 83.15% functions, 83.05% lines overall. |
+| 2026-11-26 | Part D `npm run build` | Passed; Vite production bundle generated successfully. |
+| 2026-11-26 | Part D `npm run format:check` | Passed. |
 
 ## Next step (wait for user instruction)
 
-Wait for the user's next instruction. Part D is next in the assessment sequence, but D3 must be resolved before expiry-during-edit behavior and D1 remains unapproved for cross-tab conflict UX.
+Wait for the user's next instruction. Part E is next; D4 and D6 must be resolved before checkout, persistence, and order export implementation.
 
 ## Update template for every future implementation step
 
