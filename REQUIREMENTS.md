@@ -2,7 +2,7 @@
 
 ## Source and interpretation
 
-This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation, typed domain contracts, official fixture, read-only mock API, Part A rules engine, and pure Part B stock engine are complete; authoritative stock transactions and pricing have not been implemented yet.
+This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation, typed domain contracts, official fixture, read-only mock API, and pure Parts A–C domain engines are complete; feature UI and authoritative mutation endpoints remain pending.
 
 The assessment is a logic assessment, not a design assessment. A plain, clean, responsive UI is sufficient. The primary grading targets are exact Section 9 results, correctness under races/stock pressure/edits, and the developer's ability to explain the decisions and code.
 
@@ -13,8 +13,8 @@ The assessment is a logic assessment, not a design assessment. A plain, clean, r
 | G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Partial — React 19, strict TypeScript, Vite, MSW, Vitest/RTL and coverage configured; Gemini integration remains gated by C2. |
 | G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Partial — browser/Node MSW serves typed menu and stock responses; mutation, persistence, and later feature handlers remain pending. |
 | G-03 | AI tools are allowed, but every line must be explainable, debuggable, and changeable live. | Entire codebase | Review/interview readiness | Pending |
-| G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Partial — the rules and stock engines are data-driven and pass alternate-ID/ingredient fixtures; UI and later engines remain pending. |
-| G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Partial — assessment-specific definitions remain isolated to the official fixture and neither completed engine contains assessment-specific branches; later engines/components remain pending. |
+| G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Partial — the rules, stock, and pricing engines are data-driven and pass alternate-ID/ingredient/promotion fixtures; UI and later engines remain pending. |
+| G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Partial — assessment-specific definitions remain isolated to the official fixture and none of the completed engines contains assessment-specific branches; later engines/components remain pending. |
 | G-06 | Deadline stated in the brief: 27 November 2026 at 12:00 am Bangladesh time; submission form can be submitted only once. | Submission process | Human check; no autonomous submission | Pending |
 
 ## Parts A–G matrix
@@ -48,16 +48,16 @@ Reference examples: Scrambled ×1 + Fried ×1 is valid; Scrambled ×3 violates E
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| C-01 | Complete checkpoint C1 before writing `priceCart`. | `DECISIONS.md` | Review | Blocked by checkpoint C1 |
-| C-02 | Implement pure `priceCart(cart, menu, promos, serverTime)`, shared by mock server and tests. | `domain/pricing` | Unit tests | Blocked by C1 |
-| C-03 | All money is integer poisha. | Money helpers/pricing | Type/review + exact tests | Partial — branded integer-poisha type/factory and fixture amounts are complete; pricing calculations remain blocked by C1. |
-| C-04 | Apply the six pricing steps in the exact order below. | `domain/pricing` | TC-05–TC-07 + ANSWERS tests | Blocked by C1 |
-| C-05 | Each percentage calculation rounds half-up to nearest poisha; only final payable rounds half-up to whole BDT. | Money helpers | Boundary tests + TC-06/07 | Blocked by C1 |
+| C-01 | Complete checkpoint C1 before writing `priceCart`. | `DECISIONS.md` | Review | Complete — float risk and TC-06's 7,547.5 → 7,548 poisha VAT calculation were documented in a prerequisite commit. |
+| C-02 | Implement pure `priceCart(cart, menu, promos, serverTime)`, shared by mock server and tests. | `domain/pricing` | Unit tests | Complete — pure typed engine implemented; mock `/price` wiring remains C-07. |
+| C-03 | All money is integer poisha. | Money helpers/pricing | Type/review + exact tests | Complete — public amounts are branded poisha and ratio calculations use exact integer/BigInt half-up arithmetic. |
+| C-04 | Apply the six pricing steps in the exact order below. | `domain/pricing` | TC-05–TC-07 + ANSWERS tests | Complete — unit subtotal, P2, P1, line multiplication, exclusive cart discount, VAT, and final rounding are ordered and tested. |
+| C-05 | Each percentage calculation rounds half-up to nearest poisha; only final payable rounds half-up to whole BDT. | Money helpers | Boundary tests + TC-06/07 | Complete — dedicated rounding helpers and boundary assertions pass. |
 | C-06 | UI shows subtotal, each discount, VAT, and payable. | Pricing summary UI | RTL | Pending |
 | C-07 | Configuration price is returned by mock `/price`, debounced 300 ms, with simulated 200–1500 ms latency and 15% random failure. | Price API + builder query | Fake timers/injected RNG | Pending |
 | C-08 | Stale price responses never replace a newer configuration price; cancel and/or compare request IDs. | Builder price coordinator | TC-12 | Pending |
 | C-09 | On preview failure, retain the configuration and offer Retry. | Builder UI | RTL | Pending |
-| C-10 | Resolve D2: lock price at Add to Cart, checkout, or never; implementation must remain consistent with TC-06/TC-07. | `DECISIONS.md` + orders/pricing | Decision/code consistency | Blocked by decision D2 |
+| C-10 | Resolve D2: lock price at Add to Cart, checkout, or never; implementation must remain consistent with TC-06/TC-07. | `DECISIONS.md` + orders/pricing | Decision/code consistency | Complete — checkout lock chosen; previews remain server-time estimates and TC-06/TC-07 demonstrate the cutoff behavior. |
 
 Exact pricing order:
 
@@ -174,12 +174,12 @@ Canonical configurations:
 | TC-02 | Croissant + 3 extras | Blocked: extras max is 2 when Croissant is selected (override wins) | Complete — exact acceptance assertion |
 | TC-03 | Hollandaise with only Fried eggs | Blocked: Hollandaise requires Scrambled or Omelette | Complete — exact acceptance assertion |
 | TC-04 | Tofu + Beef Bacon / Chili + Hollandaise | Blocked (excludes), both violations listed when both exist | Complete — both exact violations asserted together |
-| TC-05 | Unit price of A, B, C | A = 380.00, B = 679.50, C = 490.00 BDT | Pricing unit |
-| TC-06 | Cart B ×1 + C ×2, server time 10:59:59 | Subtotal 1,659.50; C2 = 150.00 wins over C1; VAT 75.48; payable **1,585** | Pricing unit |
-| TC-07 | Same cart, server time 11:00:00 (coupon entered) | Coupon rejected; C1 = 100.00; VAT 77.98; payable **1,637** | Pricing unit |
+| TC-05 | Unit price of A, B, C | A = 380.00, B = 679.50, C = 490.00 BDT | Complete — exact acceptance assertions |
+| TC-06 | Cart B ×1 + C ×2, server time 10:59:59 | Subtotal 1,659.50; C2 = 150.00 wins over C1; VAT 75.48; payable **1,585** | Complete — full exact breakdown asserted |
+| TC-07 | Same cart, server time 11:00:00 (coupon entered) | Coupon rejected; C1 = 100.00; VAT 77.98; payable **1,637** | Complete — full exact breakdown and attempted coupon asserted |
 | TC-08 | Cart B ×1 + C ×2: remaining stock | egg 0, cheese 0, croissant 1; any new item needing eggs is blocked with reason | Domain stock portion complete; server integration pending |
 | TC-09 | In that cart, edit B to Omelette ×3 + Fried ×1 | Blocked: `Short: 1 egg` (B's own 6 eggs counted as available) | Domain net-difference portion complete; server integration pending |
-| TC-10 | In that cart, edit B to Omelette ×1 + Fried ×3 | Allowed; B becomes 643.50; egg remaining becomes 1 | Domain stock portion complete; 643.50 pricing and server integration pending |
+| TC-10 | In that cart, edit B to Omelette ×1 + Fried ×3 | Allowed; B becomes 643.50; egg remaining becomes 1 | Stock and generic pricing domain capabilities complete; combined server integration remains pending |
 | TC-11 | In that cart, change C quantity 2 → 3 | Blocked: `Short: 2 egg, 2 cheese` (all shortages listed) | Domain net-difference portion complete; server integration pending |
 | TC-12 | Pricing responses return out of order | Only the latest configuration's price is ever displayed | Fake-timer RTL/integration |
 | TC-13 | Add to Cart clicked 3 times quickly | Exactly one cart item and one reservation | Idempotency integration |
@@ -200,7 +200,7 @@ Full unresolved prompts and completion criteria live in `DECISIONS.md`.
 | ID | Topic | Feature gate | Status |
 |---|---|---|---|
 | D1 | Two-tab stock race while editing | Part B save conflict UX | Draft for personal review; not approved |
-| D2 | When promotion-sensitive prices lock | Pricing/cart/order semantics | Unresolved |
+| D2 | When promotion-sensitive prices lock | Pricing/cart/order semantics | Resolved — successful checkout |
 | D3 | Reservation expiry during edit | Part D edit UX | Unresolved |
 | D4 | Order ID/timestamp authority and Pay idempotency | Part E checkout | Unresolved |
 | D5 | Unsupported “best customer” query | Part F assistant safety | Unresolved |
@@ -247,7 +247,7 @@ Every answer must be produced by running the project's own code and include the 
 | AM-06 | “How many more units can be added” can be constrained by stock, group rules, cross-rules, and quantity context; the phrase does not specify whether the number is stock-only. | Prefer the maximum immediately addable under both ingredient stock and current configuration validity, then verify during implementation; document UI semantics. |
 | AM-07 | The exact response contracts/status codes for mock endpoints are unspecified. | Partial: discriminated success/error contracts and read-only menu/stock responses are defined. Mutation-specific status mapping remains pending with those endpoints. |
 | AM-08 | D1 assumes two tabs share one server, while per-tab MSW in-memory state is not inherently shared. | The store contract explicitly reports single-context, memory-only capabilities and supports expected-version transactions. Cross-tab coordination remains unresolved under D1/Part G. |
-| AM-09 | Price-lock semantics are intentionally open and interact with historical pricing and TC-06/07. | Resolve D2 before committing the cart/order model. |
+| AM-09 | Price-lock semantics are intentionally open and interact with historical pricing and TC-06/07. | Resolved in D2: previews/cart totals are current estimates; checkout stores the immutable authoritative breakdown; seeds use historical `createdAt`. |
 | AM-10 | Seed initialization identity (“first start”) and reset behavior are unspecified. | Use a schema-versioned persistent store and an explicit test reset path; never append duplicate seed orders. |
 | AM-11 | Browser-to-Gemini calls expose the runtime key to the browser by design for this assessment. | Treat this as assessment-only, use a task-scoped free key, document the production limitation, and never commit it. |
 | AM-12 | PDF spelling is `Assesment.pdf`; changing the filename could break reviewer/user expectations. | Preserve the supplied filename. |

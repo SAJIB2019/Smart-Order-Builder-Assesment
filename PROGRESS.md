@@ -4,7 +4,7 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 
 ## Current state
 
-**Phase:** Part B pure ingredient stock engine complete; authoritative transactions remain deferred to Part D.
+**Phase:** Part C pure pricing engine complete; mock price endpoint and UI integration remain pending.
 
 | Area | Status | Evidence / next gate |
 |---|---|---|
@@ -12,12 +12,12 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 | Planning documents | Complete | `AGENTS.md`, `REQUIREMENTS.md`, `IMPLEMENTATION_PLAN.md`, `DECISIONS.md`, `PROGRESS.md`. |
 | Project foundation | Complete | React 19, strict TypeScript, Vite, MSW browser/Node wiring, Vitest/RTL, ESLint, Prettier, coverage, and lightweight CSS. |
 | Domain/API foundation | Complete | Generic domain contracts, exact Appendix A/Part C fixture, menu/stock endpoints, typed client, injectable server clock, and mock-store boundary. |
-| D1–D6 | Unresolved | D1 has a concrete draft for personal review but is not approved; D2–D6 remain unresolved. |
-| C1 | Unresolved | Must be completed before `priceCart`. |
+| D1–D6 | Partial | D2 is resolved with checkout price locking. D1 remains a review draft; D3–D6 remain unresolved. |
+| C1 | Complete | Integer-poisha risk and TC-06 VAT half-up working documented before pricing code. |
 | C2 | Unresolved | Must be completed before Gemini integration. |
 | Part A | Complete (engine) | Pure generic validation, UI-ready result, alternate-fixture coverage, and TC-01–TC-04 pass. Builder-button wiring remains part of the future UI feature. |
 | Part B | Complete (domain engine) | Shared ingredient calculations, finite/unlimited capacity, shortages, net-difference edits, atomic immutable results, and TC-08–TC-11 domain coverage pass. API/UI transaction wiring remains for Part D; D1 is still unapproved. |
-| Part C | Not started | Pricing; C1 and D2 gates apply. |
+| Part C | Complete (domain engine) | Pure six-step engine, exact rounding, coupon audit data, historical Asia/Dhaka time, and TC-05–TC-07 pass. Mock `/price`, async race handling, and pricing UI remain pending. |
 | Part D | Not started | Reservations; D3 gate applies. |
 | Part E | Not started | Checkout/orders; D4 and D6 gates apply. |
 | Part F | Not started | Sales assistant; C2 and D5 gates apply. |
@@ -79,6 +79,18 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 - Added unit coverage for shared egg use, unlimited stock, capacity, quantity changes, unchanged edits, failed edits, complete shortages, valid/invalid releases, duplicate normalization, malformed input, and a fixture with different option/ingredient IDs.
 - Added domain acceptance coverage for TC-08 through TC-11. TC-10's price remains pending Part C, and all authoritative API transaction wiring remains pending Part D.
 
+### 2026-11-25 — Part C pure pricing engine
+
+- Re-read all four scanned PDF pages, including the exact C1 wording, six pricing steps, D2, Appendix A prices, and TC-05–TC-07.
+- Completed C1 before pricing code: documented binary floating-point risk and the manual TC-06 calculation `150,950 × 500 / 10,000 = 7,547.5 → 7,548` poisha VAT.
+- Resolved D2 by locking authoritative totals at successful checkout. Preview/cart totals remain estimates repriced with current server time; historical seeds use `createdAt`.
+- Added pure `priceCart(cart, menu, promos, serverTime)` driven by supplied menu groups/options, promotion definitions, pricing policy, coupon code, cap, cutoff time zone, and tie priorities.
+- Added exact integer/BigInt half-up helpers. Every percentage rounds to poisha; only final payable rounds to a 100-poisha whole-BDT boundary.
+- Added typed line/cart breakdowns, all eligible cart-discount candidates, and attempted/matched/eligible/applied coupon status.
+- Added unit coverage for subtotals, single/multiple cheapest-free units, combo thresholds, promotion order, quantities, cart thresholds, caps, ties, cutoff, VAT/final rounding, historical timestamps, unknown coupons, and an alternate-ID promotion fixture.
+- Added exact official acceptance coverage: TC-05 A = 38,000, B = 67,950, C = 49,000 poisha; TC-06 payable = 158,500 poisha; TC-07 payable = 163,700 poisha.
+- Investigated one initial unit-test discrepancy: Omelette ×2 consumes four egg ingredients but counts as only two Eggs-group units, so the combo correctly remained ineligible until Fried ×2 was added to meet the configured group threshold.
+
 ## Verification log
 
 | Date | Check | Result |
@@ -113,10 +125,16 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 | 2026-11-25 | Part B `npm run format:check` | Passed. |
 | 2026-11-25 | Part B `npm run test:coverage` | Passed: 93.33% statements, 87.8% branches, 93.42% functions, 94.64% lines overall; stock engine 93.24% statements and 94.48% lines. |
 | 2026-11-25 | Part B `npm run build` | Passed; Vite production bundle generated successfully. |
+| 2026-11-25 | Part C `npm run test` | Passed: 12 files, 76 tests including exact TC-05–TC-07. |
+| 2026-11-25 | Part C `npm run typecheck` | Passed with all strict flags. |
+| 2026-11-25 | Part C `npm run lint` | Passed with zero warnings. |
+| 2026-11-25 | Part C `npm run format:check` | Passed. |
+| 2026-11-25 | Part C `npm run test:coverage` | Passed: 92.85% statements, 86.8% branches, 96.03% functions, 93.66% lines overall; pricing domain 92.02% statements and 100% functions. |
+| 2026-11-25 | Part C `npm run build` | Passed; Vite production bundle generated successfully. |
 
 ## Next step (wait for user instruction)
 
-Wait for the user's next instruction and personal review of the D1 draft. Part C pricing remains gated by completing C1 and resolving D2; Part D transaction/UI work must not treat D1 as approved yet.
+Wait for the user's next instruction. Part D is next in the assessment sequence, but D3 must be resolved before expiry-during-edit behavior and D1 remains unapproved for cross-tab conflict UX.
 
 ## Update template for every future implementation step
 
