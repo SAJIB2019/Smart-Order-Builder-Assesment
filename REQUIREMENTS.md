@@ -2,7 +2,7 @@
 
 ## Source and interpretation
 
-This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation is initialized; no assessment business behavior has been implemented yet.
+This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation, typed domain contracts, official fixture, and read-only mock API are initialized; rules, stock mutation, and pricing engines have not been implemented yet.
 
 The assessment is a logic assessment, not a design assessment. A plain, clean, responsive UI is sufficient. The primary grading targets are exact Section 9 results, correctness under races/stock pressure/edits, and the developer's ability to explain the decisions and code.
 
@@ -11,10 +11,10 @@ The assessment is a logic assessment, not a design assessment. A plain, clean, r
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
 | G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Partial — React 19, strict TypeScript, Vite, MSW, Vitest/RTL and coverage configured; Gemini integration remains gated by C2. |
-| G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Partial — shared browser/Node MSW infrastructure is configured; business handlers/services are intentionally pending. |
+| G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Partial — browser/Node MSW serves typed menu and stock responses; mutation, persistence, and later feature handlers remain pending. |
 | G-03 | AI tools are allowed, but every line must be explainable, debuggable, and changeable live. | Entire codebase | Review/interview readiness | Pending |
-| G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Pending |
-| G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Pending |
+| G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Partial — the official fixture is exposed through typed menu/stock endpoints; alternate-fixture engine/UI verification remains pending. |
+| G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Partial — assessment-specific definitions exist only in the official fixture; generic engines/components remain pending. |
 | G-06 | Deadline stated in the brief: 27 November 2026 at 12:00 am Bangladesh time; submission form can be submitted only once. | Submission process | Human check; no autonomous submission | Pending |
 
 ## Parts A–G matrix
@@ -50,7 +50,7 @@ Reference examples: Scrambled ×1 + Fried ×1 is valid; Scrambled ×3 violates E
 |---|---|---|---|---|
 | C-01 | Complete checkpoint C1 before writing `priceCart`. | `DECISIONS.md` | Review | Blocked by checkpoint C1 |
 | C-02 | Implement pure `priceCart(cart, menu, promos, serverTime)`, shared by mock server and tests. | `domain/pricing` | Unit tests | Blocked by C1 |
-| C-03 | All money is integer poisha. | Money helpers/pricing | Type/review + exact tests | Blocked by C1 |
+| C-03 | All money is integer poisha. | Money helpers/pricing | Type/review + exact tests | Partial — branded integer-poisha type/factory and fixture amounts are complete; pricing calculations remain blocked by C1. |
 | C-04 | Apply the six pricing steps in the exact order below. | `domain/pricing` | TC-05–TC-07 + ANSWERS tests | Blocked by C1 |
 | C-05 | Each percentage calculation rounds half-up to nearest poisha; only final payable rounds half-up to whole BDT. | Money helpers | Boundary tests + TC-06/07 | Blocked by C1 |
 | C-06 | UI shows subtotal, each discount, VAT, and payable. | Pricing summary UI | RTL | Pending |
@@ -77,7 +77,7 @@ Exact pricing order:
 | D-01 | Add to Cart includes an idempotency key; double/triple clicks create exactly one cart item. | Cart API/client | TC-13 | Pending |
 | D-02 | Mock server reserves all item ingredients atomically; failure leaves no partial/phantom reservation. | Reservation service | TC-14 | Pending |
 | D-03 | Each reservation lasts five minutes. | Reservation service | TC-15 | Pending |
-| D-04 | Server clock is 90 seconds ahead of browser. Compute offset from `serverTime`; countdown/expiry must not use raw `Date.now()`. | Server-time adapter | Fake clock + TC-15 | Pending |
+| D-04 | Server clock is 90 seconds ahead of browser. Compute offset from `serverTime`; countdown/expiry must not use raw `Date.now()`. | Server-time adapter | Fake clock + TC-15 | Partial — injectable mock-server clock and API `serverTime` metadata are complete; client offset/countdown behavior remains pending. |
 | D-05 | On expiry, release stock and make item read-only; it may be removed but not edited. | Reservation/cart service + UI | TC-15 | Pending |
 | D-06 | Edit is one server call that atomically swaps old and new allocations using Part B net difference. | Cart API | TC-09–TC-11 | Pending |
 | D-07 | Resolve D3 for expiry during an edit, including preservation/discard of unsaved changes and user message. | `DECISIONS.md` + edit UI | Decision/code consistency | Blocked by decision D3 |
@@ -239,14 +239,14 @@ Every answer must be produced by running the project's own code and include the 
 
 | ID | Finding | Working constraint / resolution path |
 |---|---|---|
-| AM-01 | The brief says Appendix A promotions come from the mock API, but Appendix A has no promotions table; P1/P2/C1/C2 exist only in Part C prose. | Encode those Part C definitions in the menu/promotions response and document provenance; do not invent additional promotions. |
-| AM-02 | Appendix A supplies display names and a few ID examples, not a complete machine-readable menu schema or fixture file. | Define a typed mock response that faithfully transcribes every listed datum. Confirm IDs by matching the seed's lowercase keys; record any schema choices under D6 only where order storage is affected. |
+| AM-01 | The brief says Appendix A promotions come from the mock API, but Appendix A has no promotions table; P1/P2/C1/C2 exist only in Part C prose. | Resolved for the fixture: P2/P1/C1/C2 and VAT/rounding metadata are transcribed from Part C into the mock menu response; no additional promotions were invented. |
+| AM-02 | Appendix A supplies display names and a few ID examples, not a complete machine-readable menu schema or fixture file. | Resolved for the menu fixture: typed IDs use the lowercase keys demonstrated by `orders.seed.json`; persisted order shape remains gated by D6. |
 | AM-03 | The repository initially contained no starter app, package manifest, lockfile, README, tests, or environment example. | Resolved for initialization: React/Vite scaffold, package/lock files, test harness, and `.env.example` now exist. The final assessment README remains a later deliverable. |
 | AM-04 | `maxDistinct` and `maxPerOption` are specified for Sauce, but generic violation wording/order is not prescribed beyond exact acceptance expectations. | Define deterministic ordering/messages and preserve exact official messages where specified. |
 | AM-05 | Multiple possible `overrideLimit` rules, conflicting overrides, and multiple simultaneous promotions beyond this fixture are not defined. | Design typed generic inputs and deterministic precedence; do not add unrequested fixture behavior without documenting it. |
 | AM-06 | “How many more units can be added” can be constrained by stock, group rules, cross-rules, and quantity context; the phrase does not specify whether the number is stock-only. | Prefer the maximum immediately addable under both ingredient stock and current configuration validity, then verify during implementation; document UI semantics. |
-| AM-07 | The exact response contracts/status codes for mock endpoints are unspecified. | Define small typed contracts with explicit conflict, validation, shortage, idempotency, and transient-error results; test consumer behavior. |
-| AM-08 | D1 assumes two tabs share one server, while per-tab MSW in-memory state is not inherently shared. | Decide persistence/coordination mechanism before D1 implementation; optional version-conflict behavior is explicitly Part G. |
+| AM-07 | The exact response contracts/status codes for mock endpoints are unspecified. | Partial: discriminated success/error contracts and read-only menu/stock responses are defined. Mutation-specific status mapping remains pending with those endpoints. |
+| AM-08 | D1 assumes two tabs share one server, while per-tab MSW in-memory state is not inherently shared. | The store contract explicitly reports single-context, memory-only capabilities and supports expected-version transactions. Cross-tab coordination remains unresolved under D1/Part G. |
 | AM-09 | Price-lock semantics are intentionally open and interact with historical pricing and TC-06/07. | Resolve D2 before committing the cart/order model. |
 | AM-10 | Seed initialization identity (“first start”) and reset behavior are unspecified. | Use a schema-versioned persistent store and an explicit test reset path; never append duplicate seed orders. |
 | AM-11 | Browser-to-Gemini calls expose the runtime key to the browser by design for this assessment. | Treat this as assessment-only, use a task-scoped free key, document the production limitation, and never commit it. |

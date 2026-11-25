@@ -4,13 +4,14 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 
 ## Current state
 
-**Phase:** Project initialization complete; data contracts and all business behavior have not started.
+**Phase:** Typed domain, official fixture, and read-only mock API foundation complete; business engines have not started.
 
 | Area | Status | Evidence / next gate |
 |---|---|---|
 | Source review | Complete | All 4 scanned PDF pages visually inspected; `orders.seed.json` inspected. |
 | Planning documents | Complete | `AGENTS.md`, `REQUIREMENTS.md`, `IMPLEMENTATION_PLAN.md`, `DECISIONS.md`, `PROGRESS.md`. |
 | Project foundation | Complete | React 19, strict TypeScript, Vite, MSW browser/Node wiring, Vitest/RTL, ESLint, Prettier, coverage, and lightweight CSS. |
+| Domain/API foundation | Complete | Generic domain contracts, exact Appendix A/Part C fixture, menu/stock endpoints, typed client, injectable server clock, and mock-store boundary. |
 | D1–D6 | Unresolved | Must be answered in author's own words before dependent behavior. |
 | C1 | Unresolved | Must be completed before `priceCart`. |
 | C2 | Unresolved | Must be completed before Gemini integration. |
@@ -47,6 +48,17 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 - Preserved `Assesment.pdf`, `orders.seed.json`, and all planning documents. No decision, checkpoint, menu fixture, endpoint, or business engine was implemented.
 - Registry compatibility note: current MSW 3.x/late 2.x depended on an unavailable `tldts-core@^7.5.6`; MSW 2.10.5 and jsdom 26.1.0 are pinned compatible releases. npm audit reports zero vulnerabilities.
 
+### 2026-11-25 — TypeScript domain, fixture, and mock API foundation
+
+- Added strict models for products, menus, groups/options, ingredients/consumption, configurations, group constraints, discriminated cross-group rules/promotions, cart items, reservations, stock allocations, pricing breakdowns, payment methods, runtime orders, and discriminated API responses/errors.
+- Added a branded `Poisha` type with runtime enforcement of non-negative safe integers. No pricing engine was implemented; C1 remains unresolved.
+- Transcribed the official Build Your Breakfast fixture in one assessment-specific module: base price, five groups, sixteen option IDs/prices/recipes, fourteen stock levels including explicit unlimited Ketchup/Chili, R1–R4, P2/P1/C1/C2, VAT, and rounding metadata.
+- Added typed `GET /api/menu` and `GET /api/stock` MSW handlers shared by browser and Node tests, plus a typed API client.
+- Added an injectable server clock with a default +90-second offset; every API success includes server time and store version metadata.
+- Added a generic mock-store contract with snapshot reads, subscriptions, expected-version transactions, and explicit capability metadata. The current adapter is deliberately single-context/memory-only and does not claim that tabs share state.
+- Kept D6 unresolved by defining `Order` only as a generic runtime aggregate; no persisted/export JSON order schema or behavior was implemented.
+- Added focused unit/integration tests for exact fixture integrity, integer money, server clock, store capability/version behavior, and menu/stock API responses.
+
 ## Verification log
 
 | Date | Check | Result |
@@ -63,10 +75,16 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 | 2026-11-25 | `npm run dev -- --host 127.0.0.1` | Passed outside the restricted sandbox; app shell and `/mockServiceWorker.js` both returned HTTP 200. |
 | 2026-11-25 | `npm run format:check` | Passed. Existing authoritative/planning artifacts are excluded from automatic reformatting. |
 | 2026-11-25 | `npm audit` (install audit) | Passed: 0 vulnerabilities. |
+| 2026-11-25 | Domain/API `npm run test` | Passed: 6 files, 18 tests. |
+| 2026-11-25 | Domain/API `npm run test:coverage` | Passed: 89.09% statements, 88.23% branches, 87.5% functions, 92.45% lines. |
+| 2026-11-25 | Domain/API `npm run typecheck` | Passed with all strict flags. |
+| 2026-11-25 | Domain/API `npm run lint` | Passed with zero warnings. |
+| 2026-11-25 | Domain/API `npm run build` | Passed; development-only mock data remains absent from the production bundle. |
+| 2026-11-25 | Domain/API `npm run format:check` | Passed. |
 
 ## Next step (wait for user instruction)
 
-Continue Phase 1 only after the user instructs implementation: define the typed, data-driven menu/rule/ingredient/stock/promotion contracts and transcribe the authoritative fixture into the mock API. Before dependent phases, resolve each decision/checkpoint in `DECISIONS.md`.
+Begin Part A only after the user instructs implementation: implement the generic pure validation engine and its official acceptance coverage. Before later dependent phases, resolve each decision/checkpoint in `DECISIONS.md`.
 
 ## Update template for every future implementation step
 
