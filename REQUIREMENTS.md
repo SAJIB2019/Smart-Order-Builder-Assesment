@@ -2,7 +2,7 @@
 
 ## Source and interpretation
 
-This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation, typed domain contracts, official fixture, read-only mock API, and Part A rules engine are complete; stock mutation and pricing engines have not been implemented yet.
+This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation, typed domain contracts, official fixture, read-only mock API, Part A rules engine, and pure Part B stock engine are complete; authoritative stock transactions and pricing have not been implemented yet.
 
 The assessment is a logic assessment, not a design assessment. A plain, clean, responsive UI is sufficient. The primary grading targets are exact Section 9 results, correctness under races/stock pressure/edits, and the developer's ability to explain the decisions and code.
 
@@ -13,8 +13,8 @@ The assessment is a logic assessment, not a design assessment. A plain, clean, r
 | G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Partial — React 19, strict TypeScript, Vite, MSW, Vitest/RTL and coverage configured; Gemini integration remains gated by C2. |
 | G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Partial — browser/Node MSW serves typed menu and stock responses; mutation, persistence, and later feature handlers remain pending. |
 | G-03 | AI tools are allowed, but every line must be explainable, debuggable, and changeable live. | Entire codebase | Review/interview readiness | Pending |
-| G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Partial — the API fixture and rules engine are data-driven and the engine passes an alternate-ID fixture test; UI and later engines remain pending. |
-| G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Partial — assessment-specific definitions remain isolated to the official fixture and the rules engine contains no assessment-specific conditions; later engines/components remain pending. |
+| G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Partial — the rules and stock engines are data-driven and pass alternate-ID/ingredient fixtures; UI and later engines remain pending. |
+| G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Partial — assessment-specific definitions remain isolated to the official fixture and neither completed engine contains assessment-specific branches; later engines/components remain pending. |
 | G-06 | Deadline stated in the brief: 27 November 2026 at 12:00 am Bangladesh time; submission form can be submitted only once. | Submission process | Human check; no autonomous submission | Pending |
 
 ## Parts A–G matrix
@@ -37,12 +37,12 @@ Reference examples: Scrambled ×1 + Fried ×1 is valid; Scrambled ×3 violates E
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| B-01 | Options consume configured ingredients; stock is per ingredient and shared across all cart items plus the configuration being built. | `domain/stock` + mock server | TC-08–TC-11 | Pending |
-| B-02 | For every option, show the number of additional units currently addable and disable it at zero. | Builder feature | Stock capacity unit tests + RTL | Pending |
-| B-03 | Cart item quantity is limited to 1–3 and multiplies ingredient usage. | Cart/domain | Unit + RTL tests | Pending |
-| B-04 | Editing uses net difference; the edited item can reuse its existing allocation, with no double-counting or over-release. | `domain/stock` + cart API | TC-09–TC-11 | Pending |
-| B-05 | A blocked operation lists every short ingredient and exact missing amount (example: `Short: 2 egg, 2 cheese`). | Stock result/UI | TC-09, TC-11 | Pending |
-| B-06 | Resolve D1 before finalizing two-tab save-conflict UX. | `DECISIONS.md` + cart feature | Decision/code consistency test | Blocked by decision D1 |
+| B-01 | Options consume configured ingredients; stock is per ingredient and shared across all cart items plus the configuration being built. | `domain/stock` + mock server | TC-08–TC-11 | Partial — pure aggregation/shared-stock calculations and domain acceptance tests are complete; server transaction wiring remains for Part D. |
+| B-02 | For every option, show the number of additional units currently addable and disable it at zero. | Builder feature | Stock capacity unit tests + RTL | Partial — generic finite/unlimited capacity calculation is complete; builder display/disable behavior remains pending. |
+| B-03 | Cart item quantity is limited to 1–3 and multiplies ingredient usage. | Cart/domain | Unit + RTL tests | Partial — domain runtime guard and multiplication tests are complete; cart UI remains pending. |
+| B-04 | Editing uses net difference; the edited item can reuse its existing allocation, with no double-counting or over-release. | `domain/stock` + cart API | TC-09–TC-11 | Partial — atomic pure net-difference application passes TC-09–TC-11; authoritative cart endpoint remains for Part D. |
+| B-05 | A blocked operation lists every short ingredient and exact missing amount (example: `Short: 2 egg, 2 cheese`). | Stock result/UI | TC-09, TC-11 | Partial — complete structured shortages and exact formatter are implemented; UI rendering remains pending. |
+| B-06 | Resolve D1 before finalizing two-tab save-conflict UX. | `DECISIONS.md` + cart feature | Decision/code consistency test | Blocked by decision D1 — concrete draft recorded for personal review, not approved or implemented. |
 
 ### Part C — Pricing engine (mandatory)
 
@@ -177,10 +177,10 @@ Canonical configurations:
 | TC-05 | Unit price of A, B, C | A = 380.00, B = 679.50, C = 490.00 BDT | Pricing unit |
 | TC-06 | Cart B ×1 + C ×2, server time 10:59:59 | Subtotal 1,659.50; C2 = 150.00 wins over C1; VAT 75.48; payable **1,585** | Pricing unit |
 | TC-07 | Same cart, server time 11:00:00 (coupon entered) | Coupon rejected; C1 = 100.00; VAT 77.98; payable **1,637** | Pricing unit |
-| TC-08 | Cart B ×1 + C ×2: remaining stock | egg 0, cheese 0, croissant 1; any new item needing eggs is blocked with reason | Stock integration |
-| TC-09 | In that cart, edit B to Omelette ×3 + Fried ×1 | Blocked: `Short: 1 egg` (B's own 6 eggs counted as available) | Atomic edit integration |
-| TC-10 | In that cart, edit B to Omelette ×1 + Fried ×3 | Allowed; B becomes 643.50; egg remaining becomes 1 | Atomic edit/pricing integration |
-| TC-11 | In that cart, change C quantity 2 → 3 | Blocked: `Short: 2 egg, 2 cheese` (all shortages listed) | Atomic edit integration |
+| TC-08 | Cart B ×1 + C ×2: remaining stock | egg 0, cheese 0, croissant 1; any new item needing eggs is blocked with reason | Domain stock portion complete; server integration pending |
+| TC-09 | In that cart, edit B to Omelette ×3 + Fried ×1 | Blocked: `Short: 1 egg` (B's own 6 eggs counted as available) | Domain net-difference portion complete; server integration pending |
+| TC-10 | In that cart, edit B to Omelette ×1 + Fried ×3 | Allowed; B becomes 643.50; egg remaining becomes 1 | Domain stock portion complete; 643.50 pricing and server integration pending |
+| TC-11 | In that cart, change C quantity 2 → 3 | Blocked: `Short: 2 egg, 2 cheese` (all shortages listed) | Domain net-difference portion complete; server integration pending |
 | TC-12 | Pricing responses return out of order | Only the latest configuration's price is ever displayed | Fake-timer RTL/integration |
 | TC-13 | Add to Cart clicked 3 times quickly | Exactly one cart item and one reservation | Idempotency integration |
 | TC-14 | Reserve call fails mid-way | No stock is held; configuration is kept; Retry works | Transaction integration + RTL |
@@ -199,7 +199,7 @@ Full unresolved prompts and completion criteria live in `DECISIONS.md`.
 
 | ID | Topic | Feature gate | Status |
 |---|---|---|---|
-| D1 | Two-tab stock race while editing | Part B save conflict UX | Unresolved |
+| D1 | Two-tab stock race while editing | Part B save conflict UX | Draft for personal review; not approved |
 | D2 | When promotion-sensitive prices lock | Pricing/cart/order semantics | Unresolved |
 | D3 | Reservation expiry during edit | Part D edit UX | Unresolved |
 | D4 | Order ID/timestamp authority and Pay idempotency | Part E checkout | Unresolved |

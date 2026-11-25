@@ -4,7 +4,7 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 
 ## Current state
 
-**Phase:** Part A generic rules engine complete; ready for the next explicitly requested implementation step.
+**Phase:** Part B pure ingredient stock engine complete; authoritative transactions remain deferred to Part D.
 
 | Area | Status | Evidence / next gate |
 |---|---|---|
@@ -12,11 +12,11 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 | Planning documents | Complete | `AGENTS.md`, `REQUIREMENTS.md`, `IMPLEMENTATION_PLAN.md`, `DECISIONS.md`, `PROGRESS.md`. |
 | Project foundation | Complete | React 19, strict TypeScript, Vite, MSW browser/Node wiring, Vitest/RTL, ESLint, Prettier, coverage, and lightweight CSS. |
 | Domain/API foundation | Complete | Generic domain contracts, exact Appendix A/Part C fixture, menu/stock endpoints, typed client, injectable server clock, and mock-store boundary. |
-| D1–D6 | Unresolved | Must be answered in author's own words before dependent behavior. |
+| D1–D6 | Unresolved | D1 has a concrete draft for personal review but is not approved; D2–D6 remain unresolved. |
 | C1 | Unresolved | Must be completed before `priceCart`. |
 | C2 | Unresolved | Must be completed before Gemini integration. |
 | Part A | Complete (engine) | Pure generic validation, UI-ready result, alternate-fixture coverage, and TC-01–TC-04 pass. Builder-button wiring remains part of the future UI feature. |
-| Part B | Not started | Shared ingredient stock; D1 gate applies. |
+| Part B | Complete (domain engine) | Shared ingredient calculations, finite/unlimited capacity, shortages, net-difference edits, atomic immutable results, and TC-08–TC-11 domain coverage pass. API/UI transaction wiring remains for Part D; D1 is still unapproved. |
 | Part C | Not started | Pricing; C1 and D2 gates apply. |
 | Part D | Not started | Reservations; D3 gate applies. |
 | Part E | Not started | Checkout/orders; D4 and D6 gates apply. |
@@ -69,6 +69,16 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 - Added immutable official acceptance coverage for TC-01, TC-02, TC-03, and TC-04 with exact configurations, messages, identifiers, and complete violation arrays.
 - No stock, pricing, reservation, cart mutation, checkout, Gemini, or builder UI behavior was implemented.
 
+### 2026-11-25 — Part B ingredient-based shared stock engine
+
+- Re-read the scanned PDF's Part B, D1, Appendix A stock/recipes, and TC-08–TC-11 before implementation.
+- Added pure functions for aggregated configuration requirements, cart-quantity multiplication, remaining stock, per-option additional capacity, complete availability/shortage checks, net allocation differences, allocation application, safe release, and atomic edit swaps.
+- Stock is keyed only by ingredient ID. Duplicate allocation entries are normalized, different options can share one ingredient, and unlimited availability remains explicit and unchanged by apply/release operations.
+- Runtime cart quantity is restricted to integer values 1–3. Invalid allocations, over-release attempts, insufficient stock, and failed edits return the original stock snapshot without partial changes or negative quantities.
+- Added a D1 draft proposing versioned atomic saves, preserved edit drafts, authoritative refresh, exact shortage messaging, and adjust/retry recovery. It remains explicitly unapproved and no cross-tab UX or transaction transport was implemented.
+- Added unit coverage for shared egg use, unlimited stock, capacity, quantity changes, unchanged edits, failed edits, complete shortages, valid/invalid releases, duplicate normalization, malformed input, and a fixture with different option/ingredient IDs.
+- Added domain acceptance coverage for TC-08 through TC-11. TC-10's price remains pending Part C, and all authoritative API transaction wiring remains pending Part D.
+
 ## Verification log
 
 | Date | Check | Result |
@@ -97,10 +107,16 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 | 2026-11-25 | Part A `npm run format:check` | Passed. |
 | 2026-11-25 | Part A `npm run test:coverage` | Passed: 93.43% statements, 91.13% branches, 93.18% functions, 94.81% lines overall; rules engine 96.34% statements/lines and 100% functions. |
 | 2026-11-25 | Part A `npm run build` | Passed; Vite production bundle generated successfully. |
+| 2026-11-25 | Part B `npm run test` | Passed: 10 files, 58 tests including domain-level TC-08–TC-11. |
+| 2026-11-25 | Part B `npm run typecheck` | Passed with all strict flags. |
+| 2026-11-25 | Part B `npm run lint` | Passed with zero warnings. |
+| 2026-11-25 | Part B `npm run format:check` | Passed. |
+| 2026-11-25 | Part B `npm run test:coverage` | Passed: 93.33% statements, 87.8% branches, 93.42% functions, 94.64% lines overall; stock engine 93.24% statements and 94.48% lines. |
+| 2026-11-25 | Part B `npm run build` | Passed; Vite production bundle generated successfully. |
 
 ## Next step (wait for user instruction)
 
-Wait for the user's next instruction. Part B is the next planned domain phase; D1 must be resolved before its two-tab save-conflict UX is finalized. Pricing remains gated by C1 and D2.
+Wait for the user's next instruction and personal review of the D1 draft. Part C pricing remains gated by completing C1 and resolving D2; Part D transaction/UI work must not treat D1 as approved yet.
 
 ## Update template for every future implementation step
 

@@ -4,11 +4,13 @@ The PDF requires D1–D6 to be answered in the author's own words (3–6 sentenc
 
 ## D1 — Concurrent stock loss during edit
 
-**Status: UNRESOLVED — blocks the conflicting-save UX in Part B.**
+**Status: DRAFT FOR PERSONAL REVIEW — NOT APPROVED. Part D's conflicting-save UX remains gated.**
 
 Two browser tabs share one server. Tab A is editing an item when tab B takes the last eggs. What does tab A see when it saves, and does the user lose anything they typed?
 
-Resolution must specify server response, stock/validation refresh, preservation of the draft, user message, and retry/recovery path.
+**Proposed draft:** Each edit request sends the reservation ID and the store version that Tab A last read, and the mock server checks that version plus the net stock change in one atomic operation. If Tab B has already changed stock, Tab A's save changes nothing; the server returns a conflict with the latest version and stock snapshot, and the client revalidates the preserved draft to show the exact shortages. Tab A keeps every unsaved selection, while the existing cart item and reservation remain unchanged, and sees a message such as “Stock changed in another tab. Your changes were not saved. Short: 1 egg.” The user can adjust the preserved draft or retry against the refreshed version; no automatic overwrite or silent draft loss is allowed.
+
+Review note: this is a proposed behavior, not the author's final D1 answer. Cross-tab transport and the save-conflict UI are intentionally not implemented in Part B; approval and the authoritative Part D transaction layer are still required.
 
 ## D2 — Price lock timing
 
