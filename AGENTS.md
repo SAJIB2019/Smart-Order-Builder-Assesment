@@ -48,3 +48,24 @@
 - Make a meaningful, focused Git commit after each verified implementation step. Do not commit failing or unverified work as complete.
 - Preserve unrelated user changes and inspect `git status` before editing and committing.
 - Keep `REQUIREMENTS.md`, `IMPLEMENTATION_PLAN.md`, `DECISIONS.md`, and the final `README.md` aligned with the implementation.
+
+## Mandatory Git workflow for all remaining implementation phases
+
+The assessment evaluators will review the Git history, so every commit must represent genuine development progress.
+
+1. Before starting a phase, inspect Git status and the existing commit history.
+2. Preserve all previous commits.
+3. Implement changes in small, logical units.
+4. Review the Git diff before staging changes.
+5. Run relevant tests after each logical implementation.
+6. Before completing a phase, run type checking, linting, the full test suite, and the production build.
+7. Stage only relevant files for each commit.
+8. Use meaningful Conventional Commit messages.
+9. Separate unrelated features, fixes, tests, and documentation when appropriate.
+10. Update `PROGRESS.md` and `REQUIREMENTS.md` during every implementation phase.
+11. Never commit API keys, `.env.local`, `node_modules`, coverage output, or build artifacts.
+12. Never create fake, backdated, or empty commits.
+13. Never amend or rewrite published commit history without explicit permission.
+14. Never force push.
+15. Never push automatically. Wait for the user's explicit permission.
+16. At the end of every phase, report the commit hashes, commit messages, test results, and the exact command the user should use to push.
