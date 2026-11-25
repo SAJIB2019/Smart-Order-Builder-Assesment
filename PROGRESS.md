@@ -4,7 +4,7 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 
 ## Current state
 
-**Phase:** Typed domain, official fixture, and read-only mock API foundation complete; business engines have not started.
+**Phase:** Part A generic rules engine complete; ready for the next explicitly requested implementation step.
 
 | Area | Status | Evidence / next gate |
 |---|---|---|
@@ -15,7 +15,7 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 | D1–D6 | Unresolved | Must be answered in author's own words before dependent behavior. |
 | C1 | Unresolved | Must be completed before `priceCart`. |
 | C2 | Unresolved | Must be completed before Gemini integration. |
-| Part A | Not started | Rules engine. |
+| Part A | Complete (engine) | Pure generic validation, UI-ready result, alternate-fixture coverage, and TC-01–TC-04 pass. Builder-button wiring remains part of the future UI feature. |
 | Part B | Not started | Shared ingredient stock; D1 gate applies. |
 | Part C | Not started | Pricing; C1 and D2 gates apply. |
 | Part D | Not started | Reservations; D3 gate applies. |
@@ -59,6 +59,16 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 - Kept D6 unresolved by defining `Order` only as a generic runtime aggregate; no persisted/export JSON order schema or behavior was implemented.
 - Added focused unit/integration tests for exact fixture integrity, integer money, server clock, store capability/version behavior, and menu/stock API responses.
 
+### 2026-11-25 — Part A generic rules engine
+
+- Added pure `validate(config, groups, rules)` with typed, UI-ready `isValid`, `canAddToCart`, and complete violation output.
+- Implemented data-driven `min`, `max`, total-multiple `step`, `maxDistinct`, `maxPerOption`, `requires`, `excludes`, and `overrideLimit`; active overrides replace base maxima.
+- Added runtime boundary violations for unknown option IDs and non-integer, negative, or unsafe quantities without allowing bad values into rule calculations.
+- Kept all assessment-specific IDs and definitions out of the engine. An alternate fixture with entirely different IDs verifies that rules are interpreted from supplied data.
+- Added focused unit coverage for valid/invalid configurations, all supported constraints and rules, simultaneous violations, inclusive boundaries, boundary input errors, and override metadata.
+- Added immutable official acceptance coverage for TC-01, TC-02, TC-03, and TC-04 with exact configurations, messages, identifiers, and complete violation arrays.
+- No stock, pricing, reservation, cart mutation, checkout, Gemini, or builder UI behavior was implemented.
+
 ## Verification log
 
 | Date | Check | Result |
@@ -81,10 +91,16 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 | 2026-11-25 | Domain/API `npm run lint` | Passed with zero warnings. |
 | 2026-11-25 | Domain/API `npm run build` | Passed; development-only mock data remains absent from the production bundle. |
 | 2026-11-25 | Domain/API `npm run format:check` | Passed. |
+| 2026-11-25 | Part A `npm run test` | Passed: 8 files, 35 tests including TC-01–TC-04. |
+| 2026-11-25 | Part A `npm run typecheck` | Passed with all strict flags. |
+| 2026-11-25 | Part A `npm run lint` | Passed with zero warnings. |
+| 2026-11-25 | Part A `npm run format:check` | Passed. |
+| 2026-11-25 | Part A `npm run test:coverage` | Passed: 93.43% statements, 91.13% branches, 93.18% functions, 94.81% lines overall; rules engine 96.34% statements/lines and 100% functions. |
+| 2026-11-25 | Part A `npm run build` | Passed; Vite production bundle generated successfully. |
 
 ## Next step (wait for user instruction)
 
-Begin Part A only after the user instructs implementation: implement the generic pure validation engine and its official acceptance coverage. Before later dependent phases, resolve each decision/checkpoint in `DECISIONS.md`.
+Wait for the user's next instruction. Part B is the next planned domain phase; D1 must be resolved before its two-tab save-conflict UX is finalized. Pricing remains gated by C1 and D2.
 
 ## Update template for every future implementation step
 

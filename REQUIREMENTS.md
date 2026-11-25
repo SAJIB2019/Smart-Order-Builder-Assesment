@@ -2,7 +2,7 @@
 
 ## Source and interpretation
 
-This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation, typed domain contracts, official fixture, and read-only mock API are initialized; rules, stock mutation, and pricing engines have not been implemented yet.
+This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation, typed domain contracts, official fixture, read-only mock API, and Part A rules engine are complete; stock mutation and pricing engines have not been implemented yet.
 
 The assessment is a logic assessment, not a design assessment. A plain, clean, responsive UI is sufficient. The primary grading targets are exact Section 9 results, correctness under races/stock pressure/edits, and the developer's ability to explain the decisions and code.
 
@@ -13,8 +13,8 @@ The assessment is a logic assessment, not a design assessment. A plain, clean, r
 | G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Partial — React 19, strict TypeScript, Vite, MSW, Vitest/RTL and coverage configured; Gemini integration remains gated by C2. |
 | G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Partial — browser/Node MSW serves typed menu and stock responses; mutation, persistence, and later feature handlers remain pending. |
 | G-03 | AI tools are allowed, but every line must be explainable, debuggable, and changeable live. | Entire codebase | Review/interview readiness | Pending |
-| G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Partial — the official fixture is exposed through typed menu/stock endpoints; alternate-fixture engine/UI verification remains pending. |
-| G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Partial — assessment-specific definitions exist only in the official fixture; generic engines/components remain pending. |
+| G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Partial — the API fixture and rules engine are data-driven and the engine passes an alternate-ID fixture test; UI and later engines remain pending. |
+| G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Partial — assessment-specific definitions remain isolated to the official fixture and the rules engine contains no assessment-specific conditions; later engines/components remain pending. |
 | G-06 | Deadline stated in the brief: 27 November 2026 at 12:00 am Bangladesh time; submission form can be submitted only once. | Submission process | Human check; no autonomous submission | Pending |
 
 ## Parts A–G matrix
@@ -23,13 +23,13 @@ The assessment is a logic assessment, not a design assessment. A plain, clean, r
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| A-01 | Implement pure, generic `validate(config, groups, rules)`. | `domain/rules` | Unit tests | Pending |
-| A-02 | Return all violations, not only the first; each includes group/rule ID and a human-readable message. | `domain/rules` | TC-01–TC-04 + aggregation tests | Pending |
-| A-03 | Disable Add to Cart while any violation exists. | Builder feature | RTL interaction test | Pending |
-| A-04 | Support group `min`, `max`, `step` (total quantity must be a multiple), `maxDistinct`, and `maxPerOption`. | `domain/rules` | Parameterized unit tests | Pending |
-| A-05 | Support `requires`: option X requires at least one of options `[Y, Z]`. | `domain/rules` | TC-03 | Pending |
-| A-06 | Support `excludes`: option X cannot coexist with any option in `[Y, Z]`. | `domain/rules` | TC-04 | Pending |
-| A-07 | Support `overrideLimit`: selecting option X replaces group G's base maximum; the override wins. | `domain/rules` | TC-02 | Pending |
+| A-01 | Implement pure, generic `validate(config, groups, rules)`. | `domain/rules` | Unit tests | Complete — pure implementation reads only supplied configuration, groups, and rules. |
+| A-02 | Return all violations, not only the first; each includes group/rule ID and a human-readable message. | `domain/rules` | TC-01–TC-04 + aggregation tests | Complete — typed result aggregates configuration, group, and rule violations deterministically. |
+| A-03 | Disable Add to Cart while any violation exists. | Builder feature | RTL interaction test | Partial — `ValidationResult.canAddToCart` is false whenever violations exist; builder-button wiring awaits the UI step. |
+| A-04 | Support group `min`, `max`, `step` (total quantity must be a multiple), `maxDistinct`, and `maxPerOption`. | `domain/rules` | Parameterized unit tests | Complete |
+| A-05 | Support `requires`: option X requires at least one of options `[Y, Z]`. | `domain/rules` | TC-03 | Complete |
+| A-06 | Support `excludes`: option X cannot coexist with any option in `[Y, Z]`. | `domain/rules` | TC-04 | Complete |
+| A-07 | Support `overrideLimit`: selecting option X replaces group G's base maximum; the override wins. | `domain/rules` | TC-02 | Complete |
 
 Reference examples: Scrambled ×1 + Fried ×1 is valid; Scrambled ×3 violates Eggs `step: 2`; Croissant + three Extras violates the overridden Extras maximum of 2.
 
@@ -170,10 +170,10 @@ Canonical configurations:
 
 | ID | Scenario | Exact expected result | Planned coverage |
 |---|---|---|---|
-| TC-01 | Scrambled ×3 (plus valid bread/protein) | Blocked: eggs total must be 2–6 in steps of 2 | Rules unit |
-| TC-02 | Croissant + 3 extras | Blocked: extras max is 2 when Croissant is selected (override wins) | Rules unit |
-| TC-03 | Hollandaise with only Fried eggs | Blocked: Hollandaise requires Scrambled or Omelette | Rules unit |
-| TC-04 | Tofu + Beef Bacon / Chili + Hollandaise | Blocked (excludes), both violations listed when both exist | Rules unit |
+| TC-01 | Scrambled ×3 (plus valid bread/protein) | Blocked: eggs total must be 2–6 in steps of 2 | Complete — exact acceptance assertion |
+| TC-02 | Croissant + 3 extras | Blocked: extras max is 2 when Croissant is selected (override wins) | Complete — exact acceptance assertion |
+| TC-03 | Hollandaise with only Fried eggs | Blocked: Hollandaise requires Scrambled or Omelette | Complete — exact acceptance assertion |
+| TC-04 | Tofu + Beef Bacon / Chili + Hollandaise | Blocked (excludes), both violations listed when both exist | Complete — both exact violations asserted together |
 | TC-05 | Unit price of A, B, C | A = 380.00, B = 679.50, C = 490.00 BDT | Pricing unit |
 | TC-06 | Cart B ×1 + C ×2, server time 10:59:59 | Subtotal 1,659.50; C2 = 150.00 wins over C1; VAT 75.48; payable **1,585** | Pricing unit |
 | TC-07 | Same cart, server time 11:00:00 (coupon entered) | Coupon rejected; C1 = 100.00; VAT 77.98; payable **1,637** | Pricing unit |
@@ -243,7 +243,7 @@ Every answer must be produced by running the project's own code and include the 
 | AM-02 | Appendix A supplies display names and a few ID examples, not a complete machine-readable menu schema or fixture file. | Resolved for the menu fixture: typed IDs use the lowercase keys demonstrated by `orders.seed.json`; persisted order shape remains gated by D6. |
 | AM-03 | The repository initially contained no starter app, package manifest, lockfile, README, tests, or environment example. | Resolved for initialization: React/Vite scaffold, package/lock files, test harness, and `.env.example` now exist. The final assessment README remains a later deliverable. |
 | AM-04 | `maxDistinct` and `maxPerOption` are specified for Sauce, but generic violation wording/order is not prescribed beyond exact acceptance expectations. | Define deterministic ordering/messages and preserve exact official messages where specified. |
-| AM-05 | Multiple possible `overrideLimit` rules, conflicting overrides, and multiple simultaneous promotions beyond this fixture are not defined. | Design typed generic inputs and deterministic precedence; do not add unrequested fixture behavior without documenting it. |
+| AM-05 | Multiple possible `overrideLimit` rules, conflicting overrides, and multiple simultaneous promotions beyond this fixture are not defined. | Part A uses deterministic API order: if multiple active overrides target one group, the last supplied rule wins. The official fixture has only one such rule; revisit only if the API contract is expanded. |
 | AM-06 | “How many more units can be added” can be constrained by stock, group rules, cross-rules, and quantity context; the phrase does not specify whether the number is stock-only. | Prefer the maximum immediately addable under both ingredient stock and current configuration validity, then verify during implementation; document UI semantics. |
 | AM-07 | The exact response contracts/status codes for mock endpoints are unspecified. | Partial: discriminated success/error contracts and read-only menu/stock responses are defined. Mutation-specific status mapping remains pending with those endpoints. |
 | AM-08 | D1 assumes two tabs share one server, while per-tab MSW in-memory state is not inherently shared. | The store contract explicitly reports single-context, memory-only capabilities and supports expected-version transactions. Cross-tab coordination remains unresolved under D1/Part G. |
