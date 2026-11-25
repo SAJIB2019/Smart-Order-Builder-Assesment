@@ -2,7 +2,7 @@
 
 ## Source and interpretation
 
-This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation and Parts A–D are complete, including typed mock APIs, pure engines, atomic cart/reservation mutations, and shared same-origin browser state; checkout/orders and the assistant remain pending.
+This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation and Parts A–E are complete, including typed mock APIs, pure engines, atomic cart/reservation/checkout mutations, persistent versioned orders, and shared same-origin browser state; the sales assistant remains pending.
 
 The assessment is a logic assessment, not a design assessment. A plain, clean, responsive UI is sufficient. The primary grading targets are exact Section 9 results, correctness under races/stock pressure/edits, and the developer's ability to explain the decisions and code.
 
@@ -11,7 +11,7 @@ The assessment is a logic assessment, not a design assessment. A plain, clean, r
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
 | G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Partial — React 19, strict TypeScript, Vite, MSW, Vitest/RTL and coverage configured; Gemini integration remains gated by C2. |
-| G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Partial — browser/Node MSW now serves menu, stock, pricing, cart, inventory, and reservation operations; checkout/order and assistant handlers remain pending. |
+| G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Partial — browser/Node MSW now serves menu, stock, pricing, cart, inventory, reservations, checkout, persistent orders, and export; assistant handlers remain pending. |
 | G-03 | AI tools are allowed, but every line must be explainable, debuggable, and changeable live. | Entire codebase | Review/interview readiness | Pending |
 | G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Partial — the rules, stock, and pricing engines are data-driven and pass alternate-ID/ingredient/promotion fixtures; UI and later engines remain pending. |
 | G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Partial — assessment-specific definitions remain isolated to the official fixture and none of the completed engines contains assessment-specific branches; later engines/components remain pending. |
@@ -86,13 +86,13 @@ Exact pricing order:
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| E-01 | Pay atomically converts all active cart items into one order, turns reserved stock into sold stock, and empties the cart. | Checkout/order service | TC-16 | Pending |
-| E-02 | Collect no payment data; payment method is only `card`, `bkash`, or `cash`. | Checkout UI/domain | Type + RTL | Pending |
-| E-03 | Mock server stores orders as JSON across refreshes, including computed totals. | Order repository | TC-17 | Pending |
-| E-04 | On first start only, load `orders.seed.json`; it contains no prices, so price each seed order using its `createdAt`. | Seed loader/pricing | Seed-derived tests | Pending |
-| E-05 | Download button exports every seed and new order as one valid `orders.json`. | Order export feature | TC-17 | Pending |
-| E-06 | Resolve D4: authority for order ID/timestamp and Pay idempotency. | `DECISIONS.md` + checkout API | TC-16 + review | Blocked by decision D4 |
-| E-07 | Resolve D6 and document stored-order JSON fields, money unit, and representation of an entered-but-not-applied coupon. | `DECISIONS.md` + order types | TC-17 + schema tests | Blocked by decision D6 |
+| E-01 | Pay atomically converts all active cart items into one order, turns reserved stock into sold stock, and empties the cart. | Checkout/order service | TC-16 | Complete — one store transaction locks price, marks active reservations `convertedToSale`, appends one order, empties the cart, and records Pay idempotency without releasing sold allocations. |
+| E-02 | Collect no payment data; payment method is only `card`, `bkash`, or `cash`. | Checkout UI/domain | Type + RTL | Complete — the discriminated label type, runtime boundary, and UI expose only the three exact labels and explicitly collect no payment details. |
+| E-03 | Mock server stores orders as JSON across refreshes, including computed totals. | Order repository | TC-17 | Complete — same-origin IndexedDB persists the versioned immutable line snapshots and authoritative pricing breakdowns across store/browser refresh contexts. |
+| E-04 | On first start only, load `orders.seed.json`; it contains no prices, so price each seed order using its `createdAt`. | Seed loader/pricing | Seed-derived tests | Complete — the supplied file is statically required, runtime-validated, schema-marked after initialization, and priced at each original timestamp without changing current inventory. |
+| E-05 | Download button exports every seed and new order as one valid `orders.json`. | Order export feature | TC-17 | Complete — typed export endpoint and browser download produce one documented envelope containing all persisted seed and new orders. |
+| E-06 | Resolve D4: authority for order ID/timestamp and Pay idempotency. | `DECISIONS.md` + checkout API | TC-16 + review | Complete — the server owns injected ID/time generation and successful Pay keys atomically replay the original order. |
+| E-07 | Resolve D6 and document stored-order JSON fields, money unit, and representation of an entered-but-not-applied coupon. | `DECISIONS.md` + order types | TC-17 + schema tests | Complete — schema version 1 snapshots product/options and full poisha pricing; coupon attempt, eligibility/application status, promotion ID, and applied amount are distinct. |
 
 ### Part F — Sales assistant chatbot (mandatory)
 
@@ -185,8 +185,8 @@ Canonical configurations:
 | TC-13 | Add to Cart clicked 3 times quickly | Exactly one cart item and one reservation | Complete — three concurrent server calls plus rapid-click UI key assertion |
 | TC-14 | Reserve call fails mid-way | No stock is held; configuration is kept; Retry works | Complete — injected pre-commit failure and same-request retry assertion |
 | TC-15 | Reservation passes 5:00 (server time) | Stock released; item read-only; countdown matched server, not browser | Complete — exact expiry, offset countdown, edit rejection, and removal assertion |
-| TC-16 | Pay clicked twice quickly | Exactly one order; cart empty; sold stock is not released again | Checkout idempotency integration |
-| TC-17 | Refresh after checkout, then Download `orders.json` | Orders are still there; file is valid JSON in the shape documented in D6 | Persistence/export integration |
+| TC-16 | Pay clicked twice quickly | Exactly one order; cart empty; sold stock is not released again | Complete — concurrent Pay acceptance test asserts one new order, one sold reservation, empty cart, and unchanged sold-stock deduction after expiry cleanup |
+| TC-17 | Refresh after checkout, then Download `orders.json` | Orders are still there; file is valid JSON in the shape documented in D6 | Complete — IndexedDB context recreation retains all seven orders and the serialized D6 envelope parses with the exact new order |
 | TC-18 | Ask bot “How many orders?” after seed load, then after one checkout | The two answers differ by exactly one, with no reload | Stats/Gemini mock integration |
 | TC-19 | Ask bot for the best-selling option | Same answer as the stats function; review data will be changed | Stats/tool contract with alternate data |
 | TC-20 | Ask bot “Who is our best customer?” | It explains it cannot know from this data; it does not invent a name | Assistant guardrail test |
@@ -202,9 +202,9 @@ Full unresolved prompts and completion criteria live in `DECISIONS.md`.
 | D1 | Two-tab stock race while editing | Part B save conflict UX | Resolved — IndexedDB transaction; draft preserved |
 | D2 | When promotion-sensitive prices lock | Pricing/cart/order semantics | Resolved — successful checkout |
 | D3 | Reservation expiry during edit | Part D edit UX | Resolved — expired item read-only; detached draft preserved |
-| D4 | Order ID/timestamp authority and Pay idempotency | Part E checkout | Unresolved |
+| D4 | Order ID/timestamp authority and Pay idempotency | Part E checkout | Resolved — server ID/time; atomic idempotent replay |
 | D5 | Unsupported “best customer” query | Part F assistant safety | Unresolved |
-| D6 | Stored-order JSON schema and entered-but-not-applied coupon | Part E persistence/export | Unresolved |
+| D6 | Stored-order JSON schema and entered-but-not-applied coupon | Part E persistence/export | Resolved — versioned poisha snapshot and explicit coupon outcome |
 | C1 | Float risk and hand rounding of TC-06 VAT 75.48 | `priceCart` | Complete |
 | C2 | Supported assistant questions mapped to function name/input/output | Gemini integration | Unresolved |
 
@@ -248,7 +248,7 @@ Every answer must be produced by running the project's own code and include the 
 | AM-07 | The exact response contracts/status codes for mock endpoints are unspecified. | Resolved for Part D: typed success/error envelopes map validation 400, missing 404, stock/idempotency/expiry conflicts 409, transient 503, and invariant failures 500. Later endpoint families will extend the same contract. |
 | AM-08 | D1 assumes two tabs share one server, while per-tab MSW in-memory state is not inherently shared. | Resolved for mandatory cart mutations: browser MSW handlers use shared same-origin IndexedDB transactions and BroadcastChannel refresh signals; Node/non-IDB fallback remains explicitly single-context. Optional stale-version UX is still Part G. |
 | AM-09 | Price-lock semantics are intentionally open and interact with historical pricing and TC-06/07. | Resolved in D2: previews/cart totals are current estimates; checkout stores the immutable authoritative breakdown; seeds use historical `createdAt`. |
-| AM-10 | Seed initialization identity (“first start”) and reset behavior are unspecified. | Use a schema-versioned persistent store and an explicit test reset path; never append duplicate seed orders. |
+| AM-10 | Seed initialization identity (“first start”) and reset behavior are unspecified. | Resolved for Part E: persistent state records the initialized seed schema version, inserts only missing official IDs once, and deterministic stores provide clean test initialization without subtracting historical sales from inventory. |
 | AM-11 | Browser-to-Gemini calls expose the runtime key to the browser by design for this assessment. | Treat this as assessment-only, use a task-scoped free key, document the production limitation, and never commit it. |
 | AM-12 | PDF spelling is `Assesment.pdf`; changing the filename could break reviewer/user expectations. | Preserve the supplied filename. |
 
@@ -261,7 +261,7 @@ Every answer must be produced by running the project's own code and include the 
 | Partial or duplicate stock mutations | Phantom holds, overselling, incorrect edit releases | Implemented single atomic transaction, commit-after-validation assignments, server idempotency records, and injected-failure tests. |
 | Browser/server clock skew | Incorrect countdown/expiry and TC-15 failure | Implemented response-derived server offset, injected clocks, fake-timer countdown tests, and server-authoritative expiry. |
 | Cross-tab consistency with browser-only MSW | Lost edits or divergent stock | Implemented same-origin IndexedDB write transactions for mandatory mutual exclusion; BroadcastChannel only refreshes readers; cross-device sync is out of scope. |
-| Persisted schema evolution | Duplicate/corrupt seed orders or invalid export | Versioned storage envelope, validation/migration/reset strategy, D6 schema tests. |
+| Persisted schema evolution | Duplicate/corrupt seed orders or invalid export | Implemented schema/version markers, strict supplied-file validation, insert-missing seed initialization, immutable order snapshots, and D6 export tests. |
 | Gemini nondeterminism, quota, and prompt hallucination | Wrong answers or flaky tests | Closed function/tool registry, code-owned numbers, unsupported-query guard, mocked tests, clear errors. |
 | Data-driven UI accidentally relies on fixture IDs | Fails alternate-menu review | Render groups/options from response; engines use declarative rule/recipe data; alternate fixture tests. |
 | Time-zone boundary at exactly 11:00 | Incorrect coupon application | Parse explicit offset; compare in Asia/Dhaka; test 10:59:59 and 11:00:00. |
