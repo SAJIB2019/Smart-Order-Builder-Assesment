@@ -28,11 +28,11 @@ At the exact server-time expiry, the server releases the reservation once and th
 
 ## D4 — Order authority and Pay idempotency
 
-**Status: UNRESOLVED — blocks checkout implementation in Part E.**
+**Status: RESOLVED — mock server owns identity, time, and atomic Pay replay.**
 
 Who creates the order ID and timestamp, the browser or the server, and how do you stop a double-click on Pay from creating two orders?
 
-Resolution must identify the authoritative clock/ID generator, idempotency-key lifecycle, replay response, atomic transaction boundary, and safe retry behavior.
+The mock server creates both the order ID and `createdAt` using injected generators and its authoritative clock; the browser never supplies either value. The browser creates one Pay idempotency key per logical attempt and reuses it for double-clicks and retries, while the server stores the successful request fingerprint and resulting order ID in the same transaction as the order, sold reservations, and emptied cart. Replaying the same key and request returns the original order with `replayed: true`, while reusing that key for different payment or coupon input returns an idempotency conflict. Validation, expiry cleanup, final pricing, conversion to sold stock, order insertion, cart clearing, and idempotency recording form one atomic store transaction, so a pre-commit failure creates no order and leaves active reservations retryable.
 
 ## D5 — Unsupported “best customer” query
 
@@ -44,11 +44,51 @@ Resolution must cover tool availability/schema checks, a deterministic unsupport
 
 ## D6 — Stored order JSON shape
 
-**Status: UNRESOLVED — blocks order types, persistence, and export in Part E.**
+**Status: RESOLVED — versioned immutable order snapshot in integer poisha.**
 
 Design the JSON shape of a stored order. Which fields, which money unit, and how do you record a coupon that was entered but not applied? Document the shape here.
 
-Resolution must include schema version, IDs/timestamps, line/configuration snapshot, quantities, payment label, coupon attempt and applied discount, full computed totals/breakdown, money unit, and enough immutable data for analytics/export without depending on future menu changes.
+Each stored order is a schema-versioned immutable snapshot with server-owned identity/time, `BDT` currency, explicit `poisha` money units, the payment-method label, line quantities/configurations, and product/option names and prices copied from the menu at checkout or seed initialization. `coupon.attemptedCode` records what was entered even when it was invalid or lost to C1, while `coupon.status`, `applied`, `matchedPromotionId`, and `appliedDiscountPoisha` record the actual pricing outcome without inference. The complete pricing breakdown is stored in integer poisha, including line amounts, promotion discounts, cart-discount candidates and winner, VAT, pre-round payable, and final payable, so historical analytics never depend on future menu or promotion changes. `orders.json` exports one envelope containing `schemaVersion`, `currency`, `moneyUnit`, and every seed and new stored order in this same shape.
+
+```ts
+interface StoredOrder {
+  schemaVersion: 1
+  id: string
+  createdAt: string
+  currency: 'BDT'
+  moneyUnit: 'poisha'
+  paymentMethod: 'card' | 'bkash' | 'cash'
+  coupon: {
+    attemptedCode: string | null
+    status: CouponPricingStatus
+    matchedPromotionId: string | null
+    applied: boolean
+    appliedDiscountPoisha: number
+  }
+  lines: Array<{
+    id: string
+    quantity: number
+    product: { id: string; name: string; basePricePoisha: number }
+    selections: Array<{
+      groupId: string
+      groupName: string
+      optionId: string
+      optionName: string
+      quantity: number
+      unitPricePoisha: number
+    }>
+    pricing: LinePricingBreakdown
+  }>
+  pricing: PricingBreakdown
+}
+
+interface OrdersExport {
+  schemaVersion: 1
+  currency: 'BDT'
+  moneyUnit: 'poisha'
+  orders: StoredOrder[]
+}
+```
 
 ## C1 — Money representation and TC-06 VAT rounding
 
