@@ -1,0 +1,12 @@
+dist
+coverage
+node_modules
+public/mockServiceWorker.js
+Assesment.pdf
+AGENTS.md
+DECISIONS.md
+IMPLEMENTATION_PLAN.md
+PROGRESS.md
+REQUIREMENTS.md
+orders.seed.json
+package-lock.json

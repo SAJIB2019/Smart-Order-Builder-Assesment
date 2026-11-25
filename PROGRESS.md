@@ -4,12 +4,13 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 
 ## Current state
 
-**Phase:** Planning complete; implementation has not started.
+**Phase:** Project initialization complete; data contracts and all business behavior have not started.
 
 | Area | Status | Evidence / next gate |
 |---|---|---|
 | Source review | Complete | All 4 scanned PDF pages visually inspected; `orders.seed.json` inspected. |
 | Planning documents | Complete | `AGENTS.md`, `REQUIREMENTS.md`, `IMPLEMENTATION_PLAN.md`, `DECISIONS.md`, `PROGRESS.md`. |
+| Project foundation | Complete | React 19, strict TypeScript, Vite, MSW browser/Node wiring, Vitest/RTL, ESLint, Prettier, coverage, and lightweight CSS. |
 | D1–D6 | Unresolved | Must be answered in author's own words before dependent behavior. |
 | C1 | Unresolved | Must be completed before `priceCart`. |
 | C2 | Unresolved | Must be completed before Gemini integration. |
@@ -35,6 +36,17 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 - Created persistent working rules and a sequential implementation plan.
 - No application code, dependency files, secrets, or seed data were created or changed.
 
+### 2026-11-25 — Project initialization
+
+- Initialized a React 19.3.1 + Vite 8.3.8 application with TypeScript strict mode and a minimal responsive application shell.
+- Added the requested domain, feature, mock-server, service, test, and script directory boundaries without implementing business logic.
+- Configured MSW with one shared handler list, `setupWorker` for browser development, `setupServer` for automated tests, and the generated public service-worker asset.
+- Configured Vitest 5.1.1, React Testing Library, jest-dom, jsdom, V8 coverage, deterministic test cleanup, and one shell smoke test.
+- Configured ESLint 10, TypeScript ESLint, React Hooks/Refresh rules, Prettier, and lightweight CSS.
+- Added all required npm scripts, `.gitignore`, and `.env.example` containing only `VITE_GEMINI_API_KEY=`.
+- Preserved `Assesment.pdf`, `orders.seed.json`, and all planning documents. No decision, checkpoint, menu fixture, endpoint, or business engine was implemented.
+- Registry compatibility note: current MSW 3.x/late 2.x depended on an unavailable `tldts-core@^7.5.6`; MSW 2.10.5 and jsdom 26.1.0 are pinned compatible releases. npm audit reports zero vulnerabilities.
+
 ## Verification log
 
 | Date | Check | Result |
@@ -43,10 +55,18 @@ Last updated: 2026-11-25 (Asia/Dhaka)
 | 2026-11-25 | PDF embedded text | None; visual inspection fallback used as required. |
 | 2026-11-25 | Seed structure | Top-level schema metadata plus exactly 6 orders; no prices. |
 | 2026-11-25 | Planning coverage audit | Complete: Parts A–G, 20/20 tests, D1–D6, C1–C2, Q1–Q8, Appendix A/B, and deliverables present. |
+| 2026-11-25 | `npm run typecheck` | Passed with strict TypeScript. |
+| 2026-11-25 | `npm run lint` | Passed with zero warnings. |
+| 2026-11-25 | `npm run test` | Passed: 1 file, 1 smoke test. |
+| 2026-11-25 | `npm run test:coverage` | Passed: 80% statements/lines, 100% branches/functions for the initial measured source. |
+| 2026-11-25 | `npm run build` | Passed: Vite production bundle generated in `dist/`. |
+| 2026-11-25 | `npm run dev -- --host 127.0.0.1` | Passed outside the restricted sandbox; app shell and `/mockServiceWorker.js` both returned HTTP 200. |
+| 2026-11-25 | `npm run format:check` | Passed. Existing authoritative/planning artifacts are excluded from automatic reformatting. |
+| 2026-11-25 | `npm audit` (install audit) | Passed: 0 vulnerabilities. |
 
 ## Next step (wait for user instruction)
 
-Begin Phase 1 only after the user instructs implementation: scaffold the mandated frontend/testing stack and define the typed, data-driven mock API fixture. Before dependent phases, resolve each decision/checkpoint in `DECISIONS.md`.
+Continue Phase 1 only after the user instructs implementation: define the typed, data-driven menu/rule/ingredient/stock/promotion contracts and transcribe the authoritative fixture into the mock API. Before dependent phases, resolve each decision/checkpoint in `DECISIONS.md`.
 
 ## Update template for every future implementation step
 

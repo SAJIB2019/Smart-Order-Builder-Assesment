@@ -2,7 +2,7 @@
 
 ## Source and interpretation
 
-This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Blocked by decision/checkpoint`, or `Bonus gated`; no application behavior has been implemented yet.
+This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. The project foundation is initialized; no assessment business behavior has been implemented yet.
 
 The assessment is a logic assessment, not a design assessment. A plain, clean, responsive UI is sufficient. The primary grading targets are exact Section 9 results, correctness under races/stock pressure/edits, and the developer's ability to explain the decisions and code.
 
@@ -10,8 +10,8 @@ The assessment is a logic assessment, not a design assessment. A plain, clean, r
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Pending |
-| G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Pending |
+| G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Partial — React 19, strict TypeScript, Vite, MSW, Vitest/RTL and coverage configured; Gemini integration remains gated by C2. |
+| G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Partial — shared browser/Node MSW infrastructure is configured; business handlers/services are intentionally pending. |
 | G-03 | AI tools are allowed, but every line must be explainable, debuggable, and changeable live. | Entire codebase | Review/interview readiness | Pending |
 | G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Pending |
 | G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Pending |
@@ -228,9 +228,9 @@ Every answer must be produced by running the project's own code and include the 
 | S-01 | Git repository link | Meaningful, small commits; reviewers read history. Pending. |
 | S-02 | `README.md` | Setup, architecture, structure of rules/stock/pricing engines and assistant tools, trade-offs, unfinished work, and actual hours spent. Pending. |
 | S-03 | `DECISIONS.md` | Answers to D1–D6 and C1–C2, in the author's own words; decision answers are 3–6 sentences each. Headings created, answers unresolved. |
-| S-04 | Automated tests | Cover Section 9 with Vitest/RTL and run with one command. Pending. |
+| S-04 | Automated tests | Vitest/RTL/MSW harness, one-command scripts, coverage, and one shell smoke test are complete; Section 9 coverage remains pending. |
 | S-05 | `ANSWERS.md` | All eight code-produced answers; commands/tests included; step-by-step work for Q3 and Q8. Pending. |
-| S-06 | `.env.example` | Variable name only, no real key. Pending. |
+| S-06 | `.env.example` | Complete: contains only `VITE_GEMINI_API_KEY=`. |
 | S-07 | Gemini key | A new free task-only key goes in the submission form, never Git. Requires explicit user action/permission. |
 | S-08 | Live demo URL | Optional. Do not deploy without user permission. |
 | S-09 | Submission form | Submit before stated deadline; only one submission allowed. Never submit without user permission. |
@@ -241,7 +241,7 @@ Every answer must be produced by running the project's own code and include the 
 |---|---|---|
 | AM-01 | The brief says Appendix A promotions come from the mock API, but Appendix A has no promotions table; P1/P2/C1/C2 exist only in Part C prose. | Encode those Part C definitions in the menu/promotions response and document provenance; do not invent additional promotions. |
 | AM-02 | Appendix A supplies display names and a few ID examples, not a complete machine-readable menu schema or fixture file. | Define a typed mock response that faithfully transcribes every listed datum. Confirm IDs by matching the seed's lowercase keys; record any schema choices under D6 only where order storage is affected. |
-| AM-03 | The repository contains no starter app, package manifest, lockfile, README, tests, or environment example. | Scaffold later using the mandated stack; do not assume hidden starter conventions. |
+| AM-03 | The repository initially contained no starter app, package manifest, lockfile, README, tests, or environment example. | Resolved for initialization: React/Vite scaffold, package/lock files, test harness, and `.env.example` now exist. The final assessment README remains a later deliverable. |
 | AM-04 | `maxDistinct` and `maxPerOption` are specified for Sauce, but generic violation wording/order is not prescribed beyond exact acceptance expectations. | Define deterministic ordering/messages and preserve exact official messages where specified. |
 | AM-05 | Multiple possible `overrideLimit` rules, conflicting overrides, and multiple simultaneous promotions beyond this fixture are not defined. | Design typed generic inputs and deterministic precedence; do not add unrequested fixture behavior without documenting it. |
 | AM-06 | “How many more units can be added” can be constrained by stock, group rules, cross-rules, and quantity context; the phrase does not specify whether the number is stock-only. | Prefer the maximum immediately addable under both ingredient stock and current configuration validity, then verify during implementation; document UI semantics. |

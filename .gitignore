@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build and test output
+dist/
+coverage/
+.vite/
+
+# Local environment files (the example is safe to commit)
+.env
+.env.*
+!.env.example
+
+# Logs and local tooling
+*.log
+.DS_Store
+*.tsbuildinfo
