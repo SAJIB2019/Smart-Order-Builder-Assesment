@@ -14,6 +14,7 @@ import {
 } from '../../hooks/use-price-preview'
 import { useReservationCountdown } from '../../hooks/use-reservation-countdown'
 import { ApiClient } from '../../services/api/api-client'
+import { CheckoutPanel } from '../checkout/CheckoutPanel'
 
 const browserApiClient = new ApiClient()
 
@@ -328,6 +329,15 @@ export function OrderBuilderPreview({
           />
         ))}
       </section>
+      {cartSnapshot ? (
+        <CheckoutPanel
+          cart={cartSnapshot}
+          onCartChanged={(cart, serverTime) => {
+            setCartSnapshot(cart)
+            setCartServerTime(serverTime)
+          }}
+        />
+      ) : null}
     </section>
   )
 }
