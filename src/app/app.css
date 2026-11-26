@@ -258,6 +258,97 @@ legend {
   font-weight: 800;
 }
 
+.sales-assistant {
+  margin-top: 1.5rem;
+  border: 1px solid #e4deef;
+  border-radius: 1.25rem;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  background: #ffffff;
+  box-shadow: 0 1rem 3rem rgb(48 34 78 / 8%);
+}
+
+.sales-assistant h2,
+.sales-assistant p {
+  margin-top: 0;
+}
+
+.sales-assistant-intro {
+  color: #655f73;
+}
+
+.suggested-questions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+
+.suggested-questions button,
+.assistant-form button {
+  border: 1px solid #d9cdf6;
+  border-radius: 999px;
+  padding: 0.55rem 0.8rem;
+  color: #5c35b8;
+  background: #f8f5ff;
+  cursor: pointer;
+}
+
+.suggested-questions button:disabled,
+.assistant-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.chat-log {
+  display: grid;
+  gap: 0.5rem;
+  min-height: 3rem;
+  border-block: 1px solid #eee9f5;
+  padding-block: 1rem;
+}
+
+.chat-message {
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+}
+
+.chat-message-staff {
+  background: #f2edff;
+}
+
+.chat-message-assistant {
+  background: #f4f7f4;
+}
+
+.chat-message-error {
+  color: #8b2438;
+  background: #fff0f2;
+}
+
+.assistant-form {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.assistant-form label {
+  font-weight: 700;
+}
+
+.assistant-form div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.assistant-form input {
+  flex: 1 1 18rem;
+  min-width: 0;
+  border: 1px solid #cfc5df;
+  border-radius: 0.65rem;
+  padding: 0.7rem;
+}
+
 @media (max-width: 36rem) {
   .site-header {
     align-items: flex-start;
