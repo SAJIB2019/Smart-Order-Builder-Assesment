@@ -895,6 +895,9 @@ h3 {
 .order-skeleton {
   min-height: 10rem;
 }
+.assistant-skeleton {
+  min-height: 18rem;
+}
 @keyframes shimmer {
   to {
     background-position: -200% 0;
