@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { PricingSummary } from '../../components/PricingSummary'
 import { serializeOrdersExport } from '../../domain/orders/export-orders'
 import type { CartSnapshot } from '../../domain/types/cart'
 import type { PaymentMethod } from '../../domain/types/order'
+import {
+  type PricePreviewClient,
+  usePricePreview,
+} from '../../hooks/use-price-preview'
 import { ApiClient } from '../../services/api/api-client'
+import { formatBdt } from '../../utils/formatters'
 
 const browserApiClient = new ApiClient()
 
@@ -19,17 +25,21 @@ interface CheckoutPanelProps {
     ApiClient,
     'checkout' | 'getOrders' | 'getOrdersExport'
   >
+  readonly priceClient?: PricePreviewClient
   readonly createIdempotencyKey?: () => string
   readonly downloadFile?: (download: OrdersDownload) => void
   readonly onCartChanged: (cart: CartSnapshot, serverTime: string) => void
+  readonly onOrderCreated?: () => void
 }
 
 export function CheckoutPanel({
   cart,
   client = browserApiClient,
+  priceClient = browserApiClient,
   createIdempotencyKey = defaultIdempotencyKey,
   downloadFile = downloadInBrowser,
   onCartChanged,
+  onOrderCreated,
 }: CheckoutPanelProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card')
   const [couponCode, setCouponCode] = useState('')
@@ -37,6 +47,7 @@ export function CheckoutPanel({
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastOrderId, setLastOrderId] = useState<string | null>(null)
+  const [downloadPending, setDownloadPending] = useState(false)
   const payOperationRef = useRef<{
     readonly fingerprint: string
     readonly idempotencyKey: string
@@ -49,6 +60,20 @@ export function CheckoutPanel({
   const activeItemCount = cart.items.filter((item) =>
     activeReservationIds.has(item.reservationId),
   ).length
+  const activeItems = cart.items.filter((item) =>
+    activeReservationIds.has(item.reservationId),
+  )
+  const checkoutPreview = usePricePreview({
+    cart: {
+      items: activeItems,
+      attemptedCouponCode: couponCode.trim() || null,
+    },
+    client: priceClient,
+  })
+  const displayedPricing =
+    checkoutPreview.previewFreshness === 'current' && checkoutPreview.pricing
+      ? checkoutPreview.pricing
+      : cart.activePricing
 
   useEffect(() => {
     let ignore = false
@@ -86,6 +111,7 @@ export function CheckoutPanel({
         setLastOrderId(response.data.order.id)
         if (!response.data.replayed) {
           setOrderCount((current) => (current === null ? null : current + 1))
+          onOrderCreated?.()
         }
         if (payOperationRef.current === operation) {
           payOperationRef.current = null
@@ -104,6 +130,7 @@ export function CheckoutPanel({
 
   const downloadOrders = async () => {
     setError(null)
+    setDownloadPending(true)
     try {
       const response = await client.getOrdersExport()
       if (!response.ok) {
@@ -117,47 +144,88 @@ export function CheckoutPanel({
       })
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Download failed')
+    } finally {
+      setDownloadPending(false)
     }
   }
 
   return (
-    <section className="checkout-panel" aria-labelledby="checkout-title">
-      <div>
-        <h3 id="checkout-title">Checkout</h3>
-        <p>Payment methods are labels only. No payment data is collected.</p>
+    <section
+      className="checkout-panel"
+      id="checkout"
+      aria-labelledby="checkout-title"
+    >
+      <div className="section-heading compact-heading">
+        <div>
+          <p className="section-kicker">Complete order</p>
+          <h3 id="checkout-title">Checkout</h3>
+          <p>Choose a payment label. No payment data is collected.</p>
+        </div>
+        <strong className="checkout-total">
+          {formatBdt(displayedPricing.payable)}
+        </strong>
       </div>
-      <label>
-        Payment method
-        <select
-          value={paymentMethod}
-          onChange={(event) =>
-            setPaymentMethod(event.target.value as PaymentMethod)
-          }
-        >
-          <option value="card">card</option>
-          <option value="bkash">bkash</option>
-          <option value="cash">cash</option>
-        </select>
-      </label>
-      <label>
+      <fieldset className="payment-methods">
+        <legend>Payment method</legend>
+        {[
+          ['card', 'Card'],
+          ['bkash', 'bKash'],
+          ['cash', 'Cash'],
+        ].map(([value, label]) => (
+          <label className="payment-option" key={value}>
+            <input
+              checked={paymentMethod === value}
+              name="paymentMethod"
+              type="radio"
+              value={value}
+              onChange={(event) =>
+                setPaymentMethod(event.target.value as PaymentMethod)
+              }
+            />
+            <span>{label}</span>
+          </label>
+        ))}
+      </fieldset>
+      <label className="field-label">
         Coupon code
         <input
           value={couponCode}
           onChange={(event) => setCouponCode(event.target.value)}
-          placeholder="Optional"
+          placeholder="Optional code"
         />
       </label>
+      {activeItemCount > 0 ? (
+        <PricingSummary pricing={displayedPricing} title="Cart total" />
+      ) : null}
+      {checkoutPreview.requestStatus === 'error' ? (
+        <div className="inline-alert" role="alert">
+          <span>
+            {checkoutPreview.error?.message ?? 'Could not update total.'}
+          </span>
+          <button type="button" onClick={checkoutPreview.retry}>
+            Retry total
+          </button>
+        </div>
+      ) : null}
       <div className="checkout-actions">
         <button
+          aria-label="Pay"
           className="primary-action"
           type="button"
           disabled={activeItemCount === 0 || pending}
           onClick={() => void pay()}
         >
-          Pay
+          {pending
+            ? 'Processing…'
+            : `Pay ${formatBdt(displayedPricing.payable)}`}
         </button>
-        <button type="button" onClick={() => void downloadOrders()}>
-          Download orders.json
+        <button
+          className="secondary-action"
+          type="button"
+          disabled={downloadPending}
+          onClick={() => void downloadOrders()}
+        >
+          {downloadPending ? 'Preparing…' : 'Download orders.json'}
         </button>
       </div>
       {pending ? <p role="status">Processing payment…</p> : null}
@@ -169,8 +237,12 @@ export function CheckoutPanel({
           </button>
         </div>
       ) : null}
-      {lastOrderId ? <p>Order created: {lastOrderId}</p> : null}
-      <p>Stored orders: {orderCount ?? 'Loading…'}</p>
+      {lastOrderId ? (
+        <p className="alert success-alert" role="status">
+          Order created successfully: {lastOrderId}
+        </p>
+      ) : null}
+      <p className="muted-copy">Stored orders: {orderCount ?? 'Loading…'}</p>
     </section>
   )
 }

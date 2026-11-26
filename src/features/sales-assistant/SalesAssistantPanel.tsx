@@ -84,7 +84,8 @@ export function SalesAssistantPanel({ assistant }: SalesAssistantPanelProps) {
 
   return (
     <section
-      className="sales-assistant"
+      className="panel sales-assistant"
+      id="assistant"
       aria-labelledby="sales-assistant-title"
     >
       <p className="eyebrow">Part F</p>

@@ -1,30 +1,45 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { PricingSummary } from '../../components/PricingSummary'
 import { validate } from '../../domain/rules/validate'
+import {
+  calculateConfigurationRequirements,
+  calculateMaximumAdditionalOptionUnits,
+  calculateRemainingStock,
+  checkIngredientAvailability,
+  multiplyIngredientRequirements,
+  releaseStockAllocation,
+} from '../../domain/stock/stock-engine'
 import type {
   CartItem,
   CartSnapshot,
   Reservation,
 } from '../../domain/types/cart'
-import type { Configuration, Menu } from '../../domain/types/menu'
+import type { Configuration, Menu, OptionGroup } from '../../domain/types/menu'
 import type { PriceableCart } from '../../domain/types/pricing'
+import type { StockSnapshot } from '../../domain/types/stock'
 import {
   type PricePreviewClient,
   usePricePreview,
 } from '../../hooks/use-price-preview'
 import { useReservationCountdown } from '../../hooks/use-reservation-countdown'
 import { ApiClient } from '../../services/api/api-client'
+import { formatBdt } from '../../utils/formatters'
 import { CheckoutPanel } from '../checkout/CheckoutPanel'
+import { OrdersPanel } from '../orders/OrdersPanel'
 
 const browserApiClient = new ApiClient()
+
+type CartClient = Pick<
+  ApiClient,
+  'getCart' | 'addCartItem' | 'removeCartItem' | 'expireReservations'
+> &
+  Partial<Pick<ApiClient, 'editCartItem' | 'getInventory'>>
 
 interface OrderBuilderPreviewProps {
   readonly menuClient?: Pick<ApiClient, 'getMenu'>
   readonly priceClient?: PricePreviewClient
-  readonly cartClient?: Pick<
-    ApiClient,
-    'getCart' | 'addCartItem' | 'removeCartItem' | 'expireReservations'
-  >
+  readonly cartClient?: CartClient
   readonly createIdempotencyKey?: () => string
 }
 
@@ -39,30 +54,56 @@ export function OrderBuilderPreview({
   const [configuration, setConfiguration] = useState<Configuration>({
     selections: {},
   })
+  const [itemQuantity, setItemQuantity] = useState(1)
+  const [inventory, setInventory] = useState<StockSnapshot | null>(null)
   const [cartSnapshot, setCartSnapshot] = useState<CartSnapshot | null>(null)
   const [cartServerTime, setCartServerTime] = useState<string | null>(null)
   const [cartError, setCartError] = useState<string | null>(null)
-  const [addPending, setAddPending] = useState(false)
+  const [mutationPending, setMutationPending] = useState(false)
   const [canRetryAdd, setCanRetryAdd] = useState(false)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [ordersRefreshKey, setOrdersRefreshKey] = useState(0)
   const addOperationRef = useRef<{
     readonly fingerprint: string
     readonly idempotencyKey: string
   } | null>(null)
-  const cart = useMemo<PriceableCart>(
+
+  const previewCart = useMemo<PriceableCart>(
     () => ({
-      items: [{ id: 'builder-preview', configuration, quantity: 1 }],
+      items: [
+        {
+          id: editingItemId ?? 'builder-preview',
+          configuration,
+          quantity: itemQuantity,
+        },
+      ],
       attemptedCouponCode: null,
     }),
-    [configuration],
+    [configuration, editingItemId, itemQuantity],
   )
-  const preview = usePricePreview({ cart, client: priceClient })
+  const preview = usePricePreview({ cart: previewCart, client: priceClient })
   const validation = menu
     ? validate(configuration, menu.groups, menu.rules)
     : null
+  const stockState = useMemo(
+    () =>
+      deriveDraftStock(
+        menu,
+        inventory,
+        cartSnapshot,
+        editingItemId,
+        configuration,
+        itemQuantity,
+      ),
+    [cartSnapshot, configuration, editingItemId, inventory, itemQuantity, menu],
+  )
+  const canSubmit =
+    validation?.canAddToCart === true &&
+    stockState.availability !== 'insufficientStock' &&
+    !mutationPending
 
   useEffect(() => {
     let ignore = false
-
     void menuClient
       .getMenu()
       .then((response) => {
@@ -70,18 +111,11 @@ export function OrderBuilderPreview({
         if (response.ok) {
           setMenu(response.data)
           setMenuError(null)
-        } else {
-          setMenuError(response.error.message)
-        }
+        } else setMenuError(response.error.message)
       })
       .catch((error: unknown) => {
-        if (!ignore) {
-          setMenuError(
-            error instanceof Error ? error.message : 'Unable to load menu',
-          )
-        }
+        if (!ignore) setMenuError(toMessage(error, 'Unable to load menu'))
       })
-
     return () => {
       ignore = true
     }
@@ -89,36 +123,46 @@ export function OrderBuilderPreview({
 
   useEffect(() => {
     let ignore = false
-
-    void cartClient.getCart().then((response) => {
-      if (ignore) return
-      if (response.ok) {
-        setCartSnapshot(response.data)
-        setCartServerTime(response.meta.serverTime)
-      } else {
-        setCartError(response.error.message)
-      }
-    })
-
+    void cartClient
+      .getCart()
+      .then((response) => {
+        if (ignore) return
+        if (response.ok) {
+          setCartSnapshot(response.data)
+          setCartServerTime(response.meta.serverTime)
+        } else setCartError(response.error.message)
+      })
+      .catch((error: unknown) => {
+        if (!ignore) setCartError(toMessage(error, 'Unable to load cart'))
+      })
+    if (cartClient.getInventory) {
+      void cartClient.getInventory().then((response) => {
+        if (!ignore && response.ok) setInventory(response.data)
+      })
+    }
     return () => {
       ignore = true
     }
   }, [cartClient])
 
-  const setOptionQuantity = (optionId: string, quantity: number) => {
+  function setOptionQuantity(optionId: string, quantity: number): void {
     setConfiguration((current) => {
       const selections = { ...current.selections }
-      if (quantity === 0) {
-        delete selections[optionId]
-      } else {
-        selections[optionId] = quantity
-      }
+      if (quantity <= 0) delete selections[optionId]
+      else selections[optionId] = quantity
       return { selections }
     })
+    setCanRetryAdd(false)
   }
 
-  const addToCart = async () => {
-    const fingerprint = configurationFingerprint(configuration)
+  async function refreshInventory(): Promise<void> {
+    if (!cartClient.getInventory) return
+    const response = await cartClient.getInventory()
+    if (response.ok) setInventory(response.data)
+  }
+
+  async function addToCart(): Promise<void> {
+    const fingerprint = configurationFingerprint(configuration, itemQuantity)
     if (addOperationRef.current?.fingerprint !== fingerprint) {
       addOperationRef.current = {
         fingerprint,
@@ -126,219 +170,472 @@ export function OrderBuilderPreview({
       }
     }
     const operation = addOperationRef.current
-    setAddPending(true)
+    setMutationPending(true)
     setCanRetryAdd(false)
     setCartError(null)
-
     try {
       const response = await cartClient.addCartItem({
         idempotencyKey: operation.idempotencyKey,
         configuration,
-        quantity: 1,
+        quantity: itemQuantity,
       })
       if (response.ok) {
         setCartSnapshot(response.data.cart)
         setCartServerTime(response.meta.serverTime)
-        setCanRetryAdd(false)
         if (addOperationRef.current === operation)
           addOperationRef.current = null
+        setConfiguration({ selections: {} })
+        setItemQuantity(1)
+        await refreshInventory()
       } else if (addOperationRef.current === operation) {
         setCartError(response.error.message)
         setCanRetryAdd(true)
       }
     } catch (error) {
       if (addOperationRef.current === operation) {
-        setCartError(
-          error instanceof Error ? error.message : 'Unable to add item',
-        )
+        setCartError(toMessage(error, 'Unable to add item'))
         setCanRetryAdd(true)
       }
     } finally {
-      setAddPending(false)
+      setMutationPending(false)
     }
   }
 
-  const removeCartItem = async (cartItemId: string) => {
+  async function saveEdit(): Promise<void> {
+    if (!editingItemId || !cartClient.editCartItem) return
+    setMutationPending(true)
+    setCartError(null)
+    try {
+      const response = await cartClient.editCartItem(editingItemId, {
+        configuration,
+        quantity: itemQuantity,
+      })
+      if (response.ok) {
+        setCartSnapshot(response.data.cart)
+        setCartServerTime(response.meta.serverTime)
+        cancelEdit()
+        await refreshInventory()
+      } else setCartError(response.error.message)
+    } catch (error) {
+      setCartError(toMessage(error, 'Unable to save changes'))
+    } finally {
+      setMutationPending(false)
+    }
+  }
+
+  function beginEdit(item: CartItem): void {
+    setEditingItemId(item.id)
+    setConfiguration(item.configuration)
+    setItemQuantity(item.quantity)
+    setCartError(null)
+    document
+      .getElementById('builder-title')
+      ?.scrollIntoView?.({ behavior: 'smooth' })
+  }
+
+  function cancelEdit(): void {
+    setEditingItemId(null)
+    setConfiguration({ selections: {} })
+    setItemQuantity(1)
+    setCartError(null)
+  }
+
+  async function removeCartItem(cartItemId: string): Promise<void> {
+    setMutationPending(true)
     const response = await cartClient.removeCartItem(cartItemId)
     if (response.ok) {
       setCartSnapshot(response.data.cart)
       setCartServerTime(response.meta.serverTime)
-      setCartError(null)
-      setCanRetryAdd(false)
-    } else {
-      setCartError(response.error.message)
-      setCanRetryAdd(false)
-    }
+      if (editingItemId === cartItemId) cancelEdit()
+      await refreshInventory()
+    } else setCartError(response.error.message)
+    setMutationPending(false)
   }
 
-  const expireCartReservations = async () => {
+  async function expireCartReservations(): Promise<void> {
     const response = await cartClient.expireReservations()
     if (response.ok) {
       setCartSnapshot(response.data.cart)
       setCartServerTime(response.meta.serverTime)
-    } else {
-      setCartError(response.error.message)
-      setCanRetryAdd(false)
-    }
+      await refreshInventory()
+    } else setCartError(response.error.message)
   }
 
   return (
-    <section className="builder" aria-labelledby="builder-title">
-      <div>
-        <p className="eyebrow">Live mock API preview</p>
-        <h2 id="builder-title">Build your order</h2>
-        <p className="builder-intro">
-          Menu definitions and every displayed price come from the mock API.
-        </p>
-      </div>
+    <div className="order-workspace">
+      <section
+        className="panel builder"
+        id="builder"
+        aria-labelledby="builder-title"
+      >
+        <div className="section-heading hero-heading">
+          <div>
+            <p className="section-kicker">New order</p>
+            <h2 id="builder-title">
+              {editingItemId
+                ? 'Edit configured item'
+                : (menu?.product.name ?? 'Build your order')}
+            </h2>
+            <p>
+              Configure from the live menu. Rules, stock, and prices update as
+              you work.
+            </p>
+          </div>
+          {editingItemId ? (
+            <span className="editing-badge">Editing item</span>
+          ) : null}
+        </div>
 
-      {menuError ? <p role="alert">Menu error: {menuError}</p> : null}
-      {!menu && !menuError ? <p>Loading menu…</p> : null}
+        {menuError ? (
+          <p className="alert error-alert" role="alert">
+            Menu error: {menuError}
+          </p>
+        ) : null}
+        {!menu && !menuError ? <BuilderSkeleton /> : null}
 
-      {menu ? (
-        <div className="builder-layout">
-          <div className="option-groups">
-            {menu.groups.map((group) => (
-              <fieldset key={group.id}>
-                <legend>{group.name}</legend>
-                {group.options.map((option) => (
-                  <label className="option-row" key={option.id}>
-                    <span>
-                      {option.name} <small>+{formatBdt(option.price)}</small>
-                    </span>
-                    <input
-                      aria-label={`${option.name} quantity`}
-                      min="0"
-                      step="1"
-                      type="number"
-                      value={configuration.selections[option.id] ?? 0}
-                      onChange={(event) =>
-                        setOptionQuantity(
-                          option.id,
-                          Math.max(0, Number.parseInt(event.target.value) || 0),
-                        )
-                      }
-                    />
-                  </label>
+        {menu ? (
+          <div className="builder-layout">
+            <div className="builder-form">
+              <ItemQuantityControl
+                value={itemQuantity}
+                onChange={setItemQuantity}
+              />
+              <div className="option-groups">
+                {menu.groups.map((group) => (
+                  <OptionGroupFieldset
+                    configuration={configuration}
+                    group={group}
+                    itemQuantity={itemQuantity}
+                    key={group.id}
+                    menu={menu}
+                    stock={stockState.remainingStock}
+                    onChange={setOptionQuantity}
+                  />
                 ))}
-              </fieldset>
-            ))}
-            {validation && !validation.isValid ? (
-              <ul className="validation-list" aria-label="Configuration issues">
-                {validation.violations.map((violation) => (
-                  <li
-                    key={`${violation.source}-${violation.id}-${violation.code}`}
+              </div>
+
+              {validation && !validation.isValid ? (
+                <div className="validation-panel" role="alert">
+                  <strong>Check your configuration</strong>
+                  <ul aria-label="Configuration issues">
+                    {validation.violations.map((violation, index) => (
+                      <li
+                        key={`${violation.source}-${violation.id}-${violation.code}-${index}`}
+                      >
+                        {violation.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {stockState.shortages.length > 0 ? (
+                <div className="validation-panel stock-warning" role="alert">
+                  <strong>Not enough ingredients</strong>
+                  <ul>
+                    {stockState.shortages.map((shortage) => (
+                      <li key={shortage.ingredientId}>
+                        Short: {shortage.missing} {shortage.ingredientName}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <div className="builder-actions">
+                <button
+                  aria-label={editingItemId ? 'Save changes' : 'Add to cart'}
+                  className="primary-action"
+                  type="button"
+                  disabled={!canSubmit}
+                  onClick={() =>
+                    void (editingItemId ? saveEdit() : addToCart())
+                  }
+                >
+                  {mutationPending
+                    ? 'Saving…'
+                    : editingItemId
+                      ? 'Save changes'
+                      : `Add ${itemQuantity} to cart`}
+                </button>
+                {editingItemId ? (
+                  <button
+                    className="secondary-action"
+                    type="button"
+                    disabled={mutationPending}
+                    onClick={cancelEdit}
                   >
-                    {violation.message}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <button
-              className="primary-action"
-              type="button"
-              disabled={!validation?.canAddToCart}
-              onClick={() => void addToCart()}
-            >
-              Add to cart
-            </button>
-            {addPending ? <p role="status">Adding item…</p> : null}
-            {cartError ? (
-              <div role="alert">
-                <p>{cartError}</p>
-                {canRetryAdd ? (
-                  <button type="button" onClick={() => void addToCart()}>
-                    Retry add
+                    Cancel edit
                   </button>
                 ) : null}
               </div>
-            ) : null}
+              {cartError ? (
+                <div className="alert error-alert" role="alert">
+                  <p>{cartError}</p>
+                  {canRetryAdd ? (
+                    <button type="button" onClick={() => void addToCart()}>
+                      Retry add
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            <aside className="price-preview" aria-live="polite">
+              <div className="preview-heading">
+                <span className="preview-icon" aria-hidden="true">
+                  ৳
+                </span>
+                <div>
+                  <span>Live total</span>
+                  <strong>
+                    {preview.pricing
+                      ? formatBdt(preview.pricing.payable)
+                      : 'Calculating…'}
+                  </strong>
+                </div>
+              </div>
+              <p className="preview-state">
+                {formatPreviewState(
+                  preview.requestStatus,
+                  preview.previewFreshness,
+                )}
+              </p>
+              {preview.requestStatus === 'error' ? (
+                <div className="inline-alert" role="alert">
+                  <span>
+                    <span>
+                      {preview.error?.message ?? 'Price preview failed.'}
+                    </span>{' '}
+                    <span>Your current selections are still here.</span>
+                  </span>
+                  <button type="button" onClick={preview.retry}>
+                    Retry
+                  </button>
+                </div>
+              ) : null}
+              {preview.previewFreshness === 'current' && preview.pricing ? (
+                <PricingSummary pricing={preview.pricing} title="Item price" />
+              ) : (
+                <div className="skeleton preview-skeleton" />
+              )}
+            </aside>
           </div>
+        ) : null}
+      </section>
 
-          <aside className="price-preview" aria-live="polite">
-            <h3>Price preview</h3>
-            <p className="preview-state">
-              Request: {preview.requestStatus} · Preview:{' '}
-              {preview.previewFreshness}
-            </p>
+      <section
+        className="panel cart-panel"
+        id="cart"
+        aria-labelledby="cart-title"
+      >
+        <div className="section-heading">
+          <div>
+            <p className="section-kicker">Reserved for 5 minutes</p>
+            <h2 id="cart-title">Cart</h2>
+            <p>Stock is held by ingredient until checkout or expiry.</p>
+          </div>
+          <span className="count-badge">
+            {cartSnapshot?.items.length ?? 0} items
+          </span>
+        </div>
+        {!cartSnapshot ? (
+          <div className="skeleton cart-skeleton" aria-label="Loading cart" />
+        ) : null}
+        {cartSnapshot?.items.length === 0 ? (
+          <div className="empty-state">
+            <span aria-hidden="true">◎</span>
+            <strong>Your cart is empty</strong>
+            <p>Configure an item above to start an order.</p>
+          </div>
+        ) : null}
+        <div className="cart-list">
+          {cartSnapshot?.items.map((item) => (
+            <CartReservationRow
+              item={item}
+              key={item.id}
+              menu={menu}
+              mutationPending={mutationPending}
+              reservation={cartSnapshot.reservations.find(
+                (candidate) => candidate.id === item.reservationId,
+              )}
+              serverTime={cartServerTime}
+              onEdit={beginEdit}
+              onExpire={expireCartReservations}
+              onRemove={removeCartItem}
+            />
+          ))}
+        </div>
+        {cartSnapshot && cartSnapshot.items.length > 0 ? (
+          <PricingSummary
+            pricing={cartSnapshot.activePricing}
+            title="Reserved cart"
+          />
+        ) : null}
+        {cartSnapshot ? (
+          <CheckoutPanel
+            cart={cartSnapshot}
+            priceClient={priceClient}
+            onCartChanged={(cart, serverTime) => {
+              setCartSnapshot(cart)
+              setCartServerTime(serverTime)
+              void refreshInventory()
+            }}
+            onOrderCreated={() => setOrdersRefreshKey((current) => current + 1)}
+          />
+        ) : null}
+      </section>
 
-            {preview.requestStatus === 'error' ? (
-              <div role="alert">
-                <p>{preview.error?.message ?? 'Price preview failed.'}</p>
-                <p>Your current selections are still here.</p>
-                <button type="button" onClick={preview.retry}>
-                  Retry
+      <OrdersPanel refreshKey={ordersRefreshKey} />
+    </div>
+  )
+}
+
+function OptionGroupFieldset({
+  configuration,
+  group,
+  menu,
+  stock,
+  itemQuantity,
+  onChange,
+}: {
+  readonly configuration: Configuration
+  readonly group: OptionGroup
+  readonly menu: Menu
+  readonly stock: StockSnapshot | null
+  readonly itemQuantity: number
+  readonly onChange: (optionId: string, quantity: number) => void
+}) {
+  const groupTotal = group.options.reduce(
+    (total, option) => total + (configuration.selections[option.id] ?? 0),
+    0,
+  )
+  const effectiveMax = getEffectiveGroupMax(group, menu, configuration)
+  return (
+    <fieldset className="option-group">
+      <legend>
+        <span>{group.name}</span>
+        <small>
+          {describeConstraints(group, effectiveMax)} · Selected {groupTotal}
+        </small>
+      </legend>
+      <div className="option-grid">
+        {group.options.map((option) => {
+          const quantity = configuration.selections[option.id] ?? 0
+          const capacity = stock
+            ? calculateMaximumAdditionalOptionUnits(option, itemQuantity, stock)
+            : null
+          const groupAtMax =
+            effectiveMax !== undefined && groupTotal >= effectiveMax
+          const optionAtMax =
+            group.constraints.maxPerOption !== undefined &&
+            quantity >= group.constraints.maxPerOption
+          const noStock = capacity?.type === 'finite' && capacity.quantity === 0
+          const canIncrease = !groupAtMax && !optionAtMax && !noStock
+          const maxFromStock =
+            capacity?.type === 'finite'
+              ? quantity + capacity.quantity
+              : undefined
+          return (
+            <div
+              className={`option-card${quantity > 0 ? ' selected' : ''}${!canIncrease && quantity === 0 ? ' unavailable' : ''}`}
+              key={option.id}
+            >
+              <div className="option-copy">
+                <strong>{option.name}</strong>
+                <span>
+                  {option.price === 0
+                    ? 'Included'
+                    : `+${formatBdt(option.price)}`}
+                </span>
+                <small>{formatCapacity(capacity)}</small>
+              </div>
+              <div className="quantity-stepper">
+                <button
+                  type="button"
+                  aria-label={`Decrease ${option.name}`}
+                  disabled={quantity === 0}
+                  onClick={() => onChange(option.id, quantity - 1)}
+                >
+                  −
+                </button>
+                <input
+                  aria-label={`${option.name} quantity`}
+                  min="0"
+                  max={maxFromStock}
+                  step="1"
+                  type="number"
+                  value={quantity}
+                  onChange={(event) =>
+                    onChange(
+                      option.id,
+                      Math.max(0, Number.parseInt(event.target.value) || 0),
+                    )
+                  }
+                />
+                <button
+                  type="button"
+                  aria-label={`Increase ${option.name}`}
+                  disabled={!canIncrease}
+                  onClick={() => onChange(option.id, quantity + 1)}
+                >
+                  +
                 </button>
               </div>
-            ) : null}
+            </div>
+          )
+        })}
+      </div>
+    </fieldset>
+  )
+}
 
-            {preview.previewFreshness === 'current' && preview.pricing ? (
-              <dl>
-                <div>
-                  <dt>Subtotal</dt>
-                  <dd>{formatBdt(preview.pricing.subtotal)}</dd>
-                </div>
-                {preview.pricing.lines.flatMap((line) =>
-                  line.unitDiscounts.map((discount) => (
-                    <div key={`${line.cartItemId}-${discount.promotionId}`}>
-                      <dt>{discount.name} (per unit)</dt>
-                      <dd>−{formatBdt(discount.amount)}</dd>
-                    </div>
-                  )),
-                )}
-                <div>
-                  <dt>Cart discount</dt>
-                  <dd>
-                    −{formatBdt(preview.pricing.cartDiscount?.amount ?? 0)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>VAT</dt>
-                  <dd>{formatBdt(preview.pricing.vat)}</dd>
-                </div>
-                <div className="payable-row">
-                  <dt>Payable</dt>
-                  <dd>{formatBdt(preview.pricing.payable)}</dd>
-                </div>
-              </dl>
-            ) : (
-              <p>
-                {preview.previewFreshness === 'stale'
-                  ? 'Updating this configuration’s price…'
-                  : 'Calculating price…'}
-              </p>
-            )}
-          </aside>
-        </div>
-      ) : null}
-
-      <section className="cart-panel" aria-labelledby="cart-title">
-        <h3 id="cart-title">Cart reservations</h3>
-        {!cartSnapshot ? <p>Loading cart…</p> : null}
-        {cartSnapshot?.items.length === 0 ? <p>Your cart is empty.</p> : null}
-        {cartSnapshot?.items.map((item) => (
-          <CartReservationRow
-            key={item.id}
-            item={item}
-            reservation={cartSnapshot.reservations.find(
-              (candidate) => candidate.id === item.reservationId,
-            )}
-            serverTime={cartServerTime}
-            onRemove={removeCartItem}
-            onExpire={expireCartReservations}
-          />
-        ))}
-      </section>
-      {cartSnapshot ? (
-        <CheckoutPanel
-          cart={cartSnapshot}
-          onCartChanged={(cart, serverTime) => {
-            setCartSnapshot(cart)
-            setCartServerTime(serverTime)
-          }}
+function ItemQuantityControl({
+  value,
+  onChange,
+}: {
+  readonly value: number
+  readonly onChange: (value: number) => void
+}) {
+  return (
+    <div className="item-quantity-card">
+      <div>
+        <strong>Item quantity</strong>
+        <small>Each configured item reserves its own ingredients.</small>
+      </div>
+      <div className="quantity-stepper large-stepper">
+        <button
+          type="button"
+          aria-label="Decrease item quantity"
+          disabled={value === 1}
+          onClick={() => onChange(value - 1)}
+        >
+          −
+        </button>
+        <input
+          aria-label="Item quantity"
+          min="1"
+          max="3"
+          type="number"
+          value={value}
+          onChange={(event) =>
+            onChange(
+              Math.min(
+                3,
+                Math.max(1, Number.parseInt(event.target.value) || 1),
+              ),
+            )
+          }
         />
-      ) : null}
-    </section>
+        <button
+          type="button"
+          aria-label="Increase item quantity"
+          disabled={value === 3}
+          onClick={() => onChange(value + 1)}
+        >
+          +
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -346,39 +643,105 @@ function CartReservationRow({
   item,
   reservation,
   serverTime,
+  menu,
+  mutationPending,
+  onEdit,
   onRemove,
   onExpire,
 }: {
   readonly item: CartItem
   readonly reservation: Reservation | undefined
   readonly serverTime: string | null
+  readonly menu: Menu | null
+  readonly mutationPending: boolean
+  readonly onEdit: (item: CartItem) => void
   readonly onRemove: (cartItemId: string) => Promise<void>
   readonly onExpire: () => Promise<void>
 }) {
-  if (!reservation) return <p role="alert">Reservation data is missing.</p>
-
+  if (!reservation)
+    return (
+      <p className="alert error-alert" role="alert">
+        Reservation data is missing.
+      </p>
+    )
+  const optionIndex = new Map(
+    menu?.groups.flatMap((group) =>
+      group.options.map((option) => [option.id, option.name] as const),
+    ) ?? [],
+  )
+  const expired = reservation.status === 'expired'
   return (
-    <article className="cart-row">
-      <div>
-        <strong>Item quantity: {item.quantity}</strong>
-        <p>
-          Reservation: {reservation.status}
-          {reservation.status === 'active' && serverTime ? (
-            <ReservationTime
-              expiresAt={reservation.expiresAt}
-              serverTime={serverTime}
-              onExpire={onExpire}
-            />
-          ) : null}
-        </p>
-        {reservation.status === 'expired' ? (
-          <p>This item is read-only because its reservation expired.</p>
+    <article className={`cart-row${expired ? ' expired' : ''}`}>
+      <div className="cart-item-main">
+        <div className="cart-item-heading">
+          <div>
+            <strong>{menu?.product.name ?? 'Configured item'}</strong>
+            <span>Quantity {item.quantity}</span>
+          </div>
+          <ReservationStatus
+            reservation={reservation}
+            serverTime={serverTime}
+            onExpire={onExpire}
+          />
+        </div>
+        <ul className="selection-chips">
+          {Object.entries(item.configuration.selections)
+            .filter(([, quantity]) => quantity > 0)
+            .map(([optionId, quantity]) => (
+              <li key={optionId}>
+                {optionIndex.get(optionId) ?? optionId} ×{quantity}
+              </li>
+            ))}
+        </ul>
+        {expired ? (
+          <p className="expired-copy">
+            Reservation expired. This item is read-only but can still be
+            removed.
+          </p>
         ) : null}
       </div>
-      <button type="button" onClick={() => void onRemove(item.id)}>
-        Remove
-      </button>
+      <div className="row-actions">
+        <button
+          type="button"
+          disabled={expired || mutationPending}
+          onClick={() => onEdit(item)}
+        >
+          Edit
+        </button>
+        <button
+          className="danger-action"
+          type="button"
+          disabled={mutationPending}
+          onClick={() => void onRemove(item.id)}
+        >
+          Remove
+        </button>
+      </div>
     </article>
+  )
+}
+
+function ReservationStatus({
+  reservation,
+  serverTime,
+  onExpire,
+}: {
+  readonly reservation: Reservation
+  readonly serverTime: string | null
+  readonly onExpire: () => Promise<void>
+}) {
+  if (reservation.status !== 'active' || !serverTime)
+    return (
+      <span className={`reservation-badge ${reservation.status}`}>
+        {reservation.status}
+      </span>
+    )
+  return (
+    <ReservationTime
+      expiresAt={reservation.expiresAt}
+      serverTime={serverTime}
+      onExpire={onExpire}
+    />
   )
 }
 
@@ -393,7 +756,6 @@ function ReservationTime({
 }) {
   const remainingMs = useReservationCountdown({ expiresAt, serverTime })
   const expirationReportedRef = useRef(false)
-
   useEffect(() => {
     if (remainingMs === 0 && !expirationReportedRef.current) {
       expirationReportedRef.current = true
@@ -401,27 +763,139 @@ function ReservationTime({
     }
   }, [onExpire, remainingMs])
   const totalSeconds = Math.ceil(remainingMs / 1_000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = String(totalSeconds % 60).padStart(2, '0')
-
   return (
-    <span>
-      {' '}
-      · {minutes}:{seconds} remaining
+    <span className="reservation-badge active">
+      <span aria-hidden="true">◷</span> {Math.floor(totalSeconds / 60)}:
+      {String(totalSeconds % 60).padStart(2, '0')}
     </span>
   )
 }
 
-function formatBdt(poisha: number): string {
-  return `${(poisha / 100).toFixed(2)} BDT`
+function deriveDraftStock(
+  menu: Menu | null,
+  inventory: StockSnapshot | null,
+  cart: CartSnapshot | null,
+  editingItemId: string | null,
+  configuration: Configuration,
+  itemQuantity: number,
+) {
+  if (!menu || !inventory)
+    return {
+      availability: 'unknown' as const,
+      shortages: [],
+      remainingStock: inventory,
+    }
+  let availableStock = inventory
+  if (editingItemId && cart) {
+    const item = cart.items.find((candidate) => candidate.id === editingItemId)
+    const reservation = item
+      ? cart.reservations.find(
+          (candidate) => candidate.id === item.reservationId,
+        )
+      : undefined
+    if (reservation?.status === 'active')
+      availableStock = releaseStockAllocation(
+        inventory,
+        reservation.allocation,
+      ).stock
+  }
+  const requirements = multiplyIngredientRequirements(
+    calculateConfigurationRequirements(configuration, menu.groups),
+    itemQuantity,
+  )
+  const availability = checkIngredientAvailability(availableStock, requirements)
+  const ingredientIndex = new Map(
+    menu.ingredients.map((ingredient) => [ingredient.id, ingredient.name]),
+  )
+  const shortages =
+    availability.status === 'insufficientStock'
+      ? availability.shortages.map((shortage) => ({
+          ...shortage,
+          ingredientName:
+            ingredientIndex.get(shortage.ingredientId) ?? shortage.ingredientId,
+        }))
+      : []
+  const remaining = calculateRemainingStock(availableStock, requirements)
+  return {
+    availability: availability.status,
+    shortages,
+    remainingStock:
+      remaining.status === 'applied' ? remaining.stock : availableStock,
+  }
 }
 
-function configurationFingerprint(configuration: Configuration): string {
-  return JSON.stringify(
-    Object.entries(configuration.selections).sort(([left], [right]) =>
-      left.localeCompare(right),
-    ),
+function getEffectiveGroupMax(
+  group: OptionGroup,
+  menu: Menu,
+  configuration: Configuration,
+): number | undefined {
+  let maximum = group.constraints.max
+  for (const rule of menu.rules)
+    if (
+      rule.type === 'overrideLimit' &&
+      rule.targetGroupId === group.id &&
+      (configuration.selections[rule.triggerOptionId] ?? 0) > 0
+    )
+      maximum = rule.override.max
+  return maximum
+}
+
+function describeConstraints(
+  group: OptionGroup,
+  effectiveMax: number | undefined,
+): string {
+  const parts = [`Min ${group.constraints.min}`]
+  if (effectiveMax !== undefined) parts.push(`Max ${effectiveMax}`)
+  if (group.constraints.step !== undefined)
+    parts.push(`Step ${group.constraints.step}`)
+  if (group.constraints.maxDistinct !== undefined)
+    parts.push(`${group.constraints.maxDistinct} choices`)
+  if (group.constraints.maxPerOption !== undefined)
+    parts.push(`${group.constraints.maxPerOption} each`)
+  return parts.join(' · ')
+}
+
+function formatCapacity(
+  capacity: ReturnType<typeof calculateMaximumAdditionalOptionUnits> | null,
+): string {
+  if (!capacity) return 'Checking availability…'
+  return capacity.type === 'unlimited'
+    ? 'Unlimited availability'
+    : `${capacity.quantity} more available`
+}
+
+function formatPreviewState(status: string, freshness: string): string {
+  if (status === 'error')
+    return 'Preview unavailable — your selections are preserved.'
+  if (status === 'loading' || status === 'debouncing')
+    return 'Updating from the pricing service…'
+  if (freshness === 'current') return 'Calculated from current selections.'
+  return 'Waiting for a valid configuration.'
+}
+
+function BuilderSkeleton() {
+  return (
+    <div className="builder-layout" aria-label="Loading menu" role="status">
+      <div className="skeleton builder-skeleton" />
+      <div className="skeleton preview-skeleton" />
+    </div>
   )
+}
+
+function configurationFingerprint(
+  configuration: Configuration,
+  itemQuantity: number,
+): string {
+  return JSON.stringify({
+    itemQuantity,
+    selections: Object.entries(configuration.selections).sort(
+      ([left], [right]) => left.localeCompare(right),
+    ),
+  })
+}
+
+function toMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
 }
 
 function defaultIdempotencyKey(): string {
