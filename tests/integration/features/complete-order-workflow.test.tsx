@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { OrderBuilderPreview } from '../../../src/features/order-builder/OrderBuilderPreview'
 import { buildYourBreakfastFixture } from '../../../src/mocks/fixtures/build-your-breakfast'
 import { createApiHandlers } from '../../../src/mocks/handlers/create-api-handlers'
+import { CartService } from '../../../src/mocks/services/cart-service'
 import { OrderService } from '../../../src/mocks/services/order-service'
 import { ServerClock } from '../../../src/mocks/services/server-clock'
 import { createInMemoryMockStore } from '../../../src/mocks/store/in-memory-mock-store'
@@ -124,6 +125,80 @@ describe('complete staff order workflow', () => {
     expect(
       screen.getByRole('spinbutton', { name: 'API-provided choice quantity' }),
     ).toBeInTheDocument()
+  })
+
+  it('TC-14 preserves the configuration and leaves no phantom stock before Retry succeeds', async () => {
+    const store = createInMemoryMockStore(buildYourBreakfastFixture)
+    const clock = new ServerClock(
+      { now: () => Date.parse('2026-11-25T10:30:00+06:00') },
+      0,
+    )
+    let failNextAdd = true
+    const cart = new CartService({
+      store,
+      clock,
+      ids: {
+        cartItemId: () => 'cart-tc-14',
+        reservationId: () => 'reservation-tc-14',
+      },
+      failures: {
+        shouldFail(operation) {
+          if (operation !== 'add' || !failNextAdd) return false
+          failNextAdd = false
+          return true
+        },
+      },
+    })
+    const createIdempotencyKey = vi.fn(() => 'tc-14-logical-add')
+    server.use(
+      ...createApiHandlers({
+        store,
+        clock,
+        cartService: cart,
+        seedOrders: buildYourBreakfastFixture.seedOrders,
+        priceSimulation: { latencyMs: () => 0, shouldFail: () => false },
+      }),
+    )
+
+    render(
+      <OrderBuilderPreview createIdempotencyKey={createIdempotencyKey} />,
+    )
+    await configureValidBreakfast()
+    fireEvent.click(screen.getByRole('button', { name: 'Add to cart' }))
+
+    expect(
+      await screen.findByText('Reservation failed before commit'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('spinbutton', { name: 'Toast quantity' })).toHaveValue(
+      1,
+    )
+    expect(
+      screen.getByRole('spinbutton', { name: 'Scrambled quantity' }),
+    ).toHaveValue(2)
+
+    let state = await store.getSnapshot()
+    expect(state.cartItems).toEqual([])
+    expect(state.reservations).toEqual([])
+    expect(
+      state.stock.levels.find(({ ingredientId }) => ingredientId === 'egg')
+        ?.availability,
+    ).toEqual({ type: 'finite', quantity: 10 })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry add' }))
+    expect(await screen.findByText('Toast ×1')).toBeInTheDocument()
+
+    state = await store.getSnapshot()
+    expect(state.cartItems).toHaveLength(1)
+    expect(state.reservations).toEqual([
+      expect.objectContaining({
+        id: 'reservation-tc-14',
+        status: 'active',
+      }),
+    ])
+    expect(createIdempotencyKey).toHaveBeenCalledTimes(1)
+    expect(state.idempotencyRecords).toEqual([
+      expect.objectContaining({ key: 'tc-14-logical-add' }),
+    ])
   })
 })
 

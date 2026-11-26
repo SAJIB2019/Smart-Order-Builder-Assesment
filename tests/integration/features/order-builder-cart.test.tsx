@@ -12,7 +12,7 @@ const menu = buildYourBreakfastFixture.menu
 const serverTime = '2026-11-25T10:01:30.000Z'
 
 describe('order builder cart integration', () => {
-  it('blocks rapid repeated Add to Cart clicks after one logical request', async () => {
+  it('TC-13 blocks rapid repeated Add to Cart clicks after one logical request', async () => {
     const requests: AddCartItemRequest[] = []
     const createIdempotencyKey = vi.fn(() => 'logical-add-1')
     const cartClient: Pick<

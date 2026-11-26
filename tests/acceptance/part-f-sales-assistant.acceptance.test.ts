@@ -80,6 +80,22 @@ describe('Part F official sales-assistant acceptance tests', () => {
   })
 
   it('TC-19 matches deterministic statistics after order data changes', async () => {
+    const seedAssistant = new SalesAssistant(
+      selectingModel('getBestSellingOption'),
+      async () => seeds,
+    )
+
+    expect(await seedAssistant.ask('Best seller?')).toEqual(
+      expect.objectContaining({
+        toolName: 'getBestSellingOption',
+        toolResult: {
+          optionId: 'fried',
+          optionName: 'Fried',
+          units: 10,
+        },
+      }),
+    )
+
     const modified = [
       ...seeds,
       {
@@ -100,8 +116,14 @@ describe('Part F official sales-assistant acceptance tests', () => {
       selectingModel('getBestSellingOption'),
       async () => modified,
     )
+    const expectedAfterDataChange = getBestSellingOption(modified)
+    expect(expectedAfterDataChange).toEqual({
+      optionId: 'scrambled',
+      optionName: 'Scrambled',
+      units: 17,
+    })
     expect((await assistant.ask('Best seller?')).toolResult).toEqual(
-      getBestSellingOption(modified),
+      expectedAfterDataChange,
     )
   })
 
