@@ -160,18 +160,16 @@ describe('complete staff order workflow', () => {
       }),
     )
 
-    render(
-      <OrderBuilderPreview createIdempotencyKey={createIdempotencyKey} />,
-    )
+    render(<OrderBuilderPreview createIdempotencyKey={createIdempotencyKey} />)
     await configureValidBreakfast()
     fireEvent.click(screen.getByRole('button', { name: 'Add to cart' }))
 
     expect(
       await screen.findByText('Reservation failed before commit'),
     ).toBeInTheDocument()
-    expect(screen.getByRole('spinbutton', { name: 'Toast quantity' })).toHaveValue(
-      1,
-    )
+    expect(
+      screen.getByRole('spinbutton', { name: 'Toast quantity' }),
+    ).toHaveValue(1)
     expect(
       screen.getByRole('spinbutton', { name: 'Scrambled quantity' }),
     ).toHaveValue(2)
