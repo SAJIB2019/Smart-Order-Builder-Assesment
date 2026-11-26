@@ -13,7 +13,6 @@ import type {
   PricePreviewRequest,
   PricePreviewResponse,
 } from '../../domain/types/pricing'
-import type { StockSnapshot } from '../../domain/types/stock'
 import {
   createPricePreviewSimulation,
   type PricePreviewSimulation,
@@ -60,13 +59,9 @@ export function createApiHandlers({
         success(snapshot.menu, clock.nowIso(), snapshot.version),
       )
     }),
-    http.get('*/api/stock', async () => {
-      const snapshot = await store.getSnapshot()
-
-      return HttpResponse.json<ApiResponse<StockSnapshot>>(
-        success(snapshot.stock, clock.nowIso(), snapshot.version),
-      )
-    }),
+    http.get('*/api/stock', async () =>
+      cartApiResponse(await cartService.getInventory()),
+    ),
     http.get('*/api/cart', async () =>
       cartApiResponse(await cartService.getCart()),
     ),

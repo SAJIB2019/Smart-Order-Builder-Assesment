@@ -71,8 +71,9 @@ describe('cart and reservation mock API', () => {
     )
 
     browserTime += 300_000
+    expect(finiteQuantity(success(await apiClient.getStock()), 'egg')).toBe(10)
     const expiration = success(await apiClient.expireReservations())
-    expect(expiration.expiredReservationIds).toEqual([added.reservation.id])
+    expect(expiration.expiredReservationIds).toEqual([])
     expect(
       expiration.cart.reservations.find(
         (reservation) => reservation.id === added.reservation.id,
