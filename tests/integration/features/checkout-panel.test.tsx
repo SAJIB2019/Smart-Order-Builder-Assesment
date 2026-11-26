@@ -11,6 +11,7 @@ import type {
   OrdersSnapshot,
 } from '../../../src/domain/types/order'
 import { CheckoutPanel } from '../../../src/features/checkout/CheckoutPanel'
+import type { PricePreviewClient } from '../../../src/hooks/use-price-preview'
 import { buildYourBreakfastFixture } from '../../../src/mocks/fixtures/build-your-breakfast'
 
 const serverTime = '2026-11-25T10:01:30.000Z'
@@ -48,21 +49,20 @@ describe('checkout panel', () => {
             ),
           getOrdersExport: vi.fn(),
         }}
+        priceClient={deterministicPriceClient()}
         createIdempotencyKey={() => 'one-pay-key'}
         onCartChanged={onCartChanged}
       />,
     )
 
-    expect(screen.getByRole('option', { name: 'card' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'bkash' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'cash' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Card' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'bKash' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Cash' })).toBeInTheDocument()
     expect(
       screen.getByText('No payment data is collected.', { exact: false }),
     ).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Payment method'), {
-      target: { value: 'bkash' },
-    })
+    fireEvent.click(screen.getByRole('radio', { name: 'bKash' }))
     fireEvent.change(screen.getByLabelText('Coupon code'), {
       target: { value: 'MORNING15' },
     })
@@ -104,6 +104,7 @@ describe('checkout panel', () => {
             .fn()
             .mockResolvedValue(success<OrdersExport>(exportValue)),
         }}
+        priceClient={deterministicPriceClient()}
         downloadFile={downloadFile}
         onCartChanged={vi.fn()}
       />,
@@ -184,5 +185,24 @@ function failure<T>(message: string): ApiResponse<T> {
     ok: false,
     error: { code: 'TRANSIENT_ERROR', message, retryable: true },
     meta,
+  }
+}
+
+function deterministicPriceClient(): PricePreviewClient {
+  return {
+    async previewPrice(request) {
+      return {
+        ok: true,
+        data: {
+          requestId: request.requestId,
+          pricing: priceCart(
+            request.cart,
+            buildYourBreakfastFixture.menu,
+            buildYourBreakfastFixture.menu.promotions,
+            serverTime,
+          ),
+        },
+      }
+    },
   }
 }

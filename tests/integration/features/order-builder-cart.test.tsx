@@ -12,7 +12,7 @@ const menu = buildYourBreakfastFixture.menu
 const serverTime = '2026-11-25T10:01:30.000Z'
 
 describe('order builder cart integration', () => {
-  it('uses one generated idempotency key for rapid repeated Add to Cart clicks', async () => {
+  it('blocks rapid repeated Add to Cart clicks after one logical request', async () => {
     const requests: AddCartItemRequest[] = []
     const createIdempotencyKey = vi.fn(() => 'logical-add-1')
     const cartClient: Pick<
@@ -98,11 +98,12 @@ describe('order builder cart integration', () => {
     fireEvent.click(addButton)
     fireEvent.click(addButton)
 
-    expect(requests).toHaveLength(3)
+    expect(requests).toHaveLength(1)
     expect(
       new Set(requests.map(({ idempotencyKey }) => idempotencyKey)),
     ).toEqual(new Set(['logical-add-1']))
     expect(createIdempotencyKey).toHaveBeenCalledTimes(1)
+    expect(addButton).toBeDisabled()
   })
 })
 
