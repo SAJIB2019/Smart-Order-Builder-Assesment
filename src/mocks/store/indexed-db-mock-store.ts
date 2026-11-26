@@ -41,7 +41,7 @@ export function createIndexedDbMockStore(
     const database = await databasePromise
     const existing = await readState(database)
 
-    if (existing) return cloneStoreValue(existing)
+    if (existing) return normalizePersistedState(existing)
 
     return initializeState(database, fixture)
   }
@@ -161,9 +161,10 @@ function transactState<T>(
     let operationError: unknown
 
     request.onsuccess = () => {
-      const current =
-        (request.result as MockStoreState | undefined) ??
-        createInitialMockStoreState(fixture)
+      const stored = request.result as MockStoreState | undefined
+      const current = stored
+        ? normalizePersistedState(stored)
+        : createInitialMockStoreState(fixture)
 
       if (
         expectedVersion !== undefined &&
@@ -210,6 +211,19 @@ function transactState<T>(
 function requiredState(state: MockStoreState | undefined): MockStoreState {
   if (!state) throw new Error('IndexedDB state was not initialized')
   return state
+}
+
+function normalizePersistedState(state: MockStoreState): MockStoreState {
+  const persisted = state as MockStoreState & { cartVersion?: unknown }
+  return {
+    ...cloneStoreValue(state),
+    cartVersion:
+      typeof persisted.cartVersion === 'number' &&
+      Number.isSafeInteger(persisted.cartVersion) &&
+      persisted.cartVersion >= 0
+        ? persisted.cartVersion
+        : 0,
+  }
 }
 
 function requiredOutcome<T>(

@@ -4,6 +4,7 @@ import type { ApiResponse } from '../../domain/types/api'
 import type {
   AddCartItemRequest,
   EditCartItemRequest,
+  RemoveCartItemRequest,
 } from '../../domain/types/cart'
 import type { Menu } from '../../domain/types/menu'
 import type { CheckoutRequest, SeedOrdersFile } from '../../domain/types/order'
@@ -83,8 +84,13 @@ export function createApiHandlers({
         ),
       ),
     ),
-    http.delete('*/api/cart/items/:cartItemId', async ({ params }) =>
-      cartApiResponse(await cartService.removeItem(String(params.cartItemId))),
+    http.delete('*/api/cart/items/:cartItemId', async ({ params, request }) =>
+      cartApiResponse(
+        await cartService.removeItem(
+          String(params.cartItemId),
+          (await request.json()) as RemoveCartItemRequest,
+        ),
+      ),
     ),
     http.get('*/api/inventory', async () =>
       cartApiResponse(await cartService.getInventory()),

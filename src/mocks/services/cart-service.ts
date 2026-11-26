@@ -19,6 +19,7 @@ import type {
   EditCartItemRequest,
   ExpireReservationsResponse,
   RemoveCartItemResponse,
+  RemoveCartItemRequest,
 } from '../../domain/types/cart'
 import type { StockSnapshot } from '../../domain/types/stock'
 import type { ServerClock } from './server-clock'
@@ -126,6 +127,9 @@ export class CartService {
         return replayAdd(draft, existingRecord, serverTime)
       }
 
+      const versionConflict = cartVersionConflict(request.cartVersion, draft)
+      if (versionConflict) return versionConflict
+
       const validation = validate(
         request.configuration,
         draft.menu.groups,
@@ -200,6 +204,7 @@ export class CartService {
         ...draft.idempotencyRecords,
         idempotencyRecord,
       ]
+      draft.cartVersion += 1
 
       return {
         ok: true,
@@ -218,6 +223,9 @@ export class CartService {
     request: EditCartItemRequest,
   ): Promise<CartServiceOutcome<CartItemMutationResponse>> {
     return this.inTransaction<CartItemMutationResponse>((draft, serverTime) => {
+      const versionConflict = cartVersionConflict(request.cartVersion, draft)
+      if (versionConflict) return versionConflict
+
       const itemIndex = draft.cartItems.findIndex(
         (item) => item.id === cartItemId,
       )
@@ -304,6 +312,7 @@ export class CartService {
       draft.stock = stockResult.stock
       draft.cartItems = cartItems
       draft.reservations = reservations
+      draft.cartVersion += 1
 
       return {
         ok: true,
@@ -319,8 +328,12 @@ export class CartService {
 
   removeItem(
     cartItemId: string,
+    request: RemoveCartItemRequest,
   ): Promise<CartServiceOutcome<RemoveCartItemResponse>> {
     return this.inTransaction<RemoveCartItemResponse>((draft, serverTime) => {
+      const versionConflict = cartVersionConflict(request.cartVersion, draft)
+      if (versionConflict) return versionConflict
+
       const item = draft.cartItems.find(
         (candidate) => candidate.id === cartItemId,
       )
@@ -357,6 +370,7 @@ export class CartService {
       draft.cartItems = draft.cartItems.filter(
         (candidate) => candidate.id !== cartItemId,
       )
+      draft.cartVersion += 1
 
       return {
         ok: true,
@@ -398,6 +412,7 @@ export class CartService {
       )
       draft.stock = expiration.stock
       draft.reservations = expiration.reservations
+      if (expiration.expiredReservationIds.length > 0) draft.cartVersion += 1
       return operation(draft, serverTime, expiration.expiredReservationIds)
     })
     const serverTime = transactionServerTime ?? this.clock.nowIso()
@@ -439,6 +454,7 @@ export function createCartSnapshot(
   )
 
   return {
+    version: state.cartVersion,
     items: state.cartItems,
     reservations: state.reservations,
     activePricing: priceCart(
@@ -450,6 +466,24 @@ export function createCartSnapshot(
       state.menu.promotions,
       serverTime,
     ),
+  }
+}
+
+function cartVersionConflict(
+  expectedVersion: number,
+  state: MockStoreState,
+): CartServiceResult<never> | null {
+  if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0) {
+    return validationError('Cart version must be a non-negative integer')
+  }
+  if (expectedVersion === state.cartVersion) return null
+  return {
+    ok: false,
+    error: {
+      code: 'CONFLICT',
+      currentVersion: state.cartVersion,
+      message: 'Cart changed concurrently; reload the authoritative cart',
+    },
   }
 }
 

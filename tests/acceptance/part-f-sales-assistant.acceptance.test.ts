@@ -67,11 +67,13 @@ describe('Part F official sales-assistant acceptance tests', () => {
         selections: { toast: 1, scrambled: 2, sausage: 1, ketchup: 1 },
       },
       quantity: 1,
+      cartVersion: 0,
     })
     const checkout = await orders.checkout({
       idempotencyKey: 'tc-18-pay',
       paymentMethod: 'card',
       attemptedCouponCode: null,
+      cartVersion: 1,
     })
     expect(checkout.result.ok).toBe(true)
     expect((await assistant.ask('How many orders now?')).toolResult).toEqual({

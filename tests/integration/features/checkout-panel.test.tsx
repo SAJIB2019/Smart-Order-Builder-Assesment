@@ -77,6 +77,7 @@ describe('checkout panel', () => {
       idempotencyKey: 'one-pay-key',
       paymentMethod: 'bkash',
       attemptedCouponCode: 'MORNING15',
+      cartVersion: 1,
     })
     expect(checkout.mock.calls[1]?.[0]).toEqual(checkout.mock.calls[0]?.[0])
     expect(onCartChanged).toHaveBeenCalledWith(checkedOutCart, serverTime)
@@ -133,6 +134,7 @@ function activeCart(): CartSnapshot {
     selections: { toast: 1, scrambled: 2, sausage: 1, ketchup: 1 },
   }
   return {
+    version: 1,
     items: [
       {
         id: 'cart-1',
@@ -165,6 +167,7 @@ function activeCart(): CartSnapshot {
 
 function emptyCart(): CartSnapshot {
   return {
+    version: 0,
     items: [],
     reservations: [],
     activePricing: priceCart(

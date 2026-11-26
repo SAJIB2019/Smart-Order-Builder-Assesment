@@ -13,6 +13,7 @@ import type {
   EditCartItemRequest,
   ExpireReservationsResponse,
   RemoveCartItemResponse,
+  RemoveCartItemRequest,
 } from '../../domain/types/cart'
 import type {
   PricePreviewRequest,
@@ -85,10 +86,12 @@ export class ApiClient {
 
   removeCartItem(
     cartItemId: string,
+    request: RemoveCartItemRequest,
   ): Promise<ApiResponse<RemoveCartItemResponse>> {
     return this.send(
       'DELETE',
       `${apiEndpoints.cartItems}/${encodeURIComponent(cartItemId)}`,
+      request,
     )
   }
 

@@ -39,6 +39,7 @@ describe('cart and reservation mock API', () => {
       idempotencyKey: 'api-add',
       configuration: configurationA(),
       quantity: 1,
+      cartVersion: 0,
     })
     const added = success(addedResponse)
     expect(addedResponse.meta.serverTime).toBe('2026-11-25T10:01:30.000Z')
@@ -52,6 +53,7 @@ describe('cart and reservation mock API', () => {
         idempotencyKey: 'api-add',
         configuration: configurationA(),
         quantity: 1,
+        cartVersion: 0,
       }),
     )
     expect(replay.replayed).toBe(true)
@@ -60,6 +62,7 @@ describe('cart and reservation mock API', () => {
       await apiClient.editCartItem(added.item.id, {
         configuration: configurationAEdited(),
         quantity: 1,
+        cartVersion: 1,
       }),
     )
     expect(edited.item.configuration).toEqual(configurationAEdited())
@@ -76,7 +79,9 @@ describe('cart and reservation mock API', () => {
       )?.status,
     ).toBe('expired')
 
-    const removed = success(await apiClient.removeCartItem(added.item.id))
+    const removed = success(
+      await apiClient.removeCartItem(added.item.id, { cartVersion: 3 }),
+    )
     expect(removed.cart.items).toEqual([])
     expect(finiteQuantity(success(await apiClient.getInventory()), 'egg')).toBe(
       10,

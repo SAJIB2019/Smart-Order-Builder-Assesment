@@ -31,6 +31,7 @@ export interface EndedReservation extends ReservationBase {
 export type Reservation = ActiveReservation | EndedReservation
 
 export interface CartSnapshot {
+  readonly version: number
   readonly items: readonly CartItem[]
   readonly reservations: readonly Reservation[]
   /** Current estimate for active reservations only. */
@@ -38,14 +39,20 @@ export interface CartSnapshot {
 }
 
 export interface AddCartItemRequest {
+  readonly cartVersion: number
   readonly idempotencyKey: string
   readonly configuration: Configuration
   readonly quantity: number
 }
 
 export interface EditCartItemRequest {
+  readonly cartVersion: number
   readonly configuration: Configuration
   readonly quantity: number
+}
+
+export interface RemoveCartItemRequest {
+  readonly cartVersion: number
 }
 
 export interface CartItemMutationResponse {

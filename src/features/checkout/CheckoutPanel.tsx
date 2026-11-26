@@ -29,6 +29,7 @@ interface CheckoutPanelProps {
   readonly createIdempotencyKey?: () => string
   readonly downloadFile?: (download: OrdersDownload) => void
   readonly onCartChanged: (cart: CartSnapshot, serverTime: string) => void
+  readonly onVersionConflict?: () => Promise<void>
   readonly onOrderCreated?: () => void
 }
 
@@ -39,6 +40,7 @@ export function CheckoutPanel({
   createIdempotencyKey = defaultIdempotencyKey,
   downloadFile = downloadInBrowser,
   onCartChanged,
+  onVersionConflict,
   onOrderCreated,
 }: CheckoutPanelProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card')
@@ -102,6 +104,7 @@ export function CheckoutPanel({
 
     try {
       const response = await client.checkout({
+        cartVersion: cart.version,
         idempotencyKey: operation.idempotencyKey,
         paymentMethod,
         attemptedCouponCode,
@@ -116,6 +119,14 @@ export function CheckoutPanel({
         if (payOperationRef.current === operation) {
           payOperationRef.current = null
         }
+      } else if (
+        response.error.code === 'CONFLICT' &&
+        payOperationRef.current === operation
+      ) {
+        await onVersionConflict?.()
+        setError(
+          'Cart changed in another tab. The latest cart was loaded; review and retry.',
+        )
       } else if (payOperationRef.current === operation) {
         setError(response.error.message)
       }

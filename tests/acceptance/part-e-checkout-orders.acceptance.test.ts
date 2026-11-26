@@ -34,11 +34,13 @@ describe('Part E official checkout and order acceptance tests', () => {
         idempotencyKey: 'tc-16-add',
         configuration: configurationA(),
         quantity: 1,
+        cartVersion: 0,
       })
       const request = {
         idempotencyKey: 'tc-16-pay',
         paymentMethod: 'card' as const,
         attemptedCouponCode: null,
+        cartVersion: 1,
       }
       const [first, second] = await Promise.all([
         orders.checkout(request),
@@ -91,12 +93,14 @@ describe('Part E official checkout and order acceptance tests', () => {
       idempotencyKey: 'tc-17-add',
       configuration: configurationA(),
       quantity: 1,
+      cartVersion: 0,
     })
     successful(
       await checkout.checkout({
         idempotencyKey: 'tc-17-pay',
         paymentMethod: 'bkash',
         attemptedCouponCode: 'MORNING15',
+        cartVersion: 1,
       }),
     )
     await firstStore.dispose?.()

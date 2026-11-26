@@ -82,6 +82,7 @@ export interface OrdersExport {
 }
 
 export interface CheckoutRequest {
+  readonly cartVersion: number
   readonly idempotencyKey: string
   readonly paymentMethod: PaymentMethod
   readonly attemptedCouponCode: string | null

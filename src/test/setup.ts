@@ -11,6 +11,7 @@ beforeAll(() => {
 afterEach(() => {
   cleanup()
   server.resetHandlers()
+  globalThis.localStorage?.clear()
 })
 
 afterAll(() => {

@@ -105,6 +105,9 @@ export class OrderService {
         return replayCheckout(draft, existingRecord, serverTime)
       }
 
+      const versionConflict = cartVersionConflict(request.cartVersion, draft)
+      if (versionConflict) return versionConflict
+
       const activeReservationIds = new Set(
         draft.reservations
           .filter((reservation) => reservation.status === 'active')
@@ -167,6 +170,7 @@ export class OrderService {
           orderId: order.id,
         },
       ]
+      draft.cartVersion += 1
 
       return {
         ok: true,
@@ -196,6 +200,7 @@ export class OrderService {
       )
       draft.stock = expiration.stock
       draft.reservations = expiration.reservations
+      if (expiration.expiredReservationIds.length > 0) draft.cartVersion += 1
       initializeSeedOrders(draft, this.seedOrders)
       return operation(draft, serverTime)
     })
@@ -261,6 +266,9 @@ function validateCheckoutRequest(
   if (request.idempotencyKey.trim().length === 0) {
     return validationError('An idempotency key is required')
   }
+  if (!Number.isSafeInteger(request.cartVersion) || request.cartVersion < 0) {
+    return validationError('Cart version must be a non-negative integer')
+  }
   if (!isPaymentMethod(request.paymentMethod)) {
     return validationError('Payment method must be card, bkash, or cash')
   }
@@ -271,6 +279,21 @@ function validateCheckoutRequest(
     return validationError('Coupon code must be a string or null')
   }
   return null
+}
+
+function cartVersionConflict(
+  expectedVersion: number,
+  draft: MockStoreState,
+): OrderServiceResult<never> | null {
+  if (expectedVersion === draft.cartVersion) return null
+  return {
+    ok: false,
+    error: {
+      code: 'CONFLICT',
+      currentVersion: draft.cartVersion,
+      message: 'Cart changed concurrently; reload the authoritative cart',
+    },
+  }
 }
 
 function isPaymentMethod(value: unknown): value is PaymentMethod {

@@ -25,7 +25,7 @@ describe('Part D official cart and reservation acceptance tests', () => {
     expect(finiteQuantity(inventory, 'croissant')).toBe(1)
 
     const blocked = await harness.service.addItem(
-      addRequest('needs-eggs', configurationA(), 1),
+      addRequest('needs-eggs', configurationA(), 1, 2),
     )
     expect(blocked.result).toEqual({
       ok: false,
@@ -43,6 +43,7 @@ describe('Part D official cart and reservation acceptance tests', () => {
     const edit = await harness.service.editItem(itemB.id, {
       configuration: configurationBEditBlocked(),
       quantity: 1,
+      cartVersion: 2,
     })
     const after = await harness.store.getSnapshot()
 
@@ -66,6 +67,7 @@ describe('Part D official cart and reservation acceptance tests', () => {
       await harness.service.editItem(itemB.id, {
         configuration: configurationBEditAllowed(),
         quantity: 1,
+        cartVersion: 2,
       }),
     )
 
@@ -84,6 +86,7 @@ describe('Part D official cart and reservation acceptance tests', () => {
     const edit = await harness.service.editItem(itemC.id, {
       configuration: configurationC(),
       quantity: 3,
+      cartVersion: 2,
     })
 
     expect(edit.result).toEqual({
@@ -179,14 +182,16 @@ describe('Part D official cart and reservation acceptance tests', () => {
     const rejectedEdit = await harness.service.editItem(added.item.id, {
       configuration: configurationA(),
       quantity: 1,
+      cartVersion: 2,
     })
     expect(rejectedEdit.result).toEqual({
       ok: false,
       error: expect.objectContaining({ code: 'RESERVATION_EXPIRED' }),
     })
     expect(
-      successful(await harness.service.removeItem(added.item.id))
-        .removedCartItemId,
+      successful(
+        await harness.service.removeItem(added.item.id, { cartVersion: 2 }),
+      ).removedCartItemId,
     ).toBe(added.item.id)
   })
 })
@@ -196,7 +201,7 @@ async function addBaselineCart(service: CartService) {
     await service.addItem(addRequest('baseline-B', configurationB(), 1)),
   ).item
   const itemC = successful(
-    await service.addItem(addRequest('baseline-C', configurationC(), 2)),
+    await service.addItem(addRequest('baseline-C', configurationC(), 2, 1)),
   ).item
   return { itemB, itemC }
 }
@@ -237,8 +242,9 @@ function addRequest(
   idempotencyKey: string,
   configuration: Configuration,
   quantity: number,
+  cartVersion = 0,
 ): AddCartItemRequest {
-  return { idempotencyKey, configuration, quantity }
+  return { idempotencyKey, configuration, quantity, cartVersion }
 }
 
 function finiteQuantity(

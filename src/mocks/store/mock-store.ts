@@ -23,6 +23,7 @@ export type IdempotencyRecord =
 
 export interface MockStoreState {
   version: number
+  cartVersion: number
   menu: Menu
   stock: StockSnapshot
   cartItems: readonly CartItem[]

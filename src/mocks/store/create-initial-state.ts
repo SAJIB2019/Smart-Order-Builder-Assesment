@@ -10,6 +10,7 @@ export function createInitialMockStoreState(
 ): MockStoreState {
   return {
     version: 0,
+    cartVersion: 0,
     menu: cloneStoreValue(fixture.menu),
     stock: cloneStoreValue(fixture.stock),
     cartItems: [],

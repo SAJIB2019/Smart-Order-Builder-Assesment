@@ -24,11 +24,18 @@ import {
 } from '../../hooks/use-price-preview'
 import { useReservationCountdown } from '../../hooks/use-reservation-countdown'
 import { ApiClient } from '../../services/api/api-client'
+import {
+  createBrowserDraftRepository,
+  createConfigurationDraft,
+  type ConfigurationDraftRepository,
+  revalidateConfigurationDraft,
+} from '../../services/drafts/configuration-draft'
 import { formatBdt } from '../../utils/formatters'
 import { CheckoutPanel } from '../checkout/CheckoutPanel'
 import { OrdersPanel } from '../orders/OrdersPanel'
 
 const browserApiClient = new ApiClient()
+const browserDraftRepository = createBrowserDraftRepository()
 
 type CartClient = Pick<
   ApiClient,
@@ -41,6 +48,7 @@ interface OrderBuilderPreviewProps {
   readonly priceClient?: PricePreviewClient
   readonly cartClient?: CartClient
   readonly createIdempotencyKey?: () => string
+  readonly draftRepository?: ConfigurationDraftRepository
 }
 
 export function OrderBuilderPreview({
@@ -48,6 +56,7 @@ export function OrderBuilderPreview({
   priceClient = browserApiClient,
   cartClient = browserApiClient,
   createIdempotencyKey = defaultIdempotencyKey,
+  draftRepository = browserDraftRepository,
 }: OrderBuilderPreviewProps) {
   const [menu, setMenu] = useState<Menu | null>(null)
   const [menuError, setMenuError] = useState<string | null>(null)
@@ -67,6 +76,7 @@ export function OrderBuilderPreview({
     readonly fingerprint: string
     readonly idempotencyKey: string
   } | null>(null)
+  const draftRestoreAttemptedRef = useRef(false)
 
   const previewCart = useMemo<PriceableCart>(
     () => ({
@@ -145,6 +155,39 @@ export function OrderBuilderPreview({
     }
   }, [cartClient])
 
+  useEffect(() => {
+    if (!menu || !inventory || draftRestoreAttemptedRef.current) return
+    draftRestoreAttemptedRef.current = true
+    const storedDraft = draftRepository.load()
+    if (!storedDraft) return
+    const restored = revalidateConfigurationDraft(storedDraft, menu, inventory)
+    if (!restored) {
+      draftRepository.clear()
+      return
+    }
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setConfiguration(restored.draft.configuration)
+      setItemQuantity(restored.draft.itemQuantity)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [draftRepository, inventory, menu])
+
+  useEffect(() => {
+    if (!draftRestoreAttemptedRef.current || editingItemId) return
+    if (
+      Object.keys(configuration.selections).length === 0 &&
+      itemQuantity === 1
+    ) {
+      draftRepository.clear()
+      return
+    }
+    draftRepository.save(createConfigurationDraft(configuration, itemQuantity))
+  }, [configuration, draftRepository, editingItemId, itemQuantity])
+
   function setOptionQuantity(optionId: string, quantity: number): void {
     setConfiguration((current) => {
       const selections = { ...current.selections }
@@ -161,6 +204,18 @@ export function OrderBuilderPreview({
     if (response.ok) setInventory(response.data)
   }
 
+  async function reloadAfterVersionConflict(): Promise<void> {
+    const response = await cartClient.getCart()
+    if (response.ok) {
+      setCartSnapshot(response.data)
+      setCartServerTime(response.meta.serverTime)
+    }
+    await refreshInventory()
+    setCartError(
+      'Cart changed in another tab. The latest cart was loaded; review and retry.',
+    )
+  }
+
   async function addToCart(): Promise<void> {
     const fingerprint = configurationFingerprint(configuration, itemQuantity)
     if (addOperationRef.current?.fingerprint !== fingerprint) {
@@ -175,6 +230,7 @@ export function OrderBuilderPreview({
     setCartError(null)
     try {
       const response = await cartClient.addCartItem({
+        cartVersion: cartSnapshot?.version ?? 0,
         idempotencyKey: operation.idempotencyKey,
         configuration,
         quantity: itemQuantity,
@@ -187,6 +243,12 @@ export function OrderBuilderPreview({
         setConfiguration({ selections: {} })
         setItemQuantity(1)
         await refreshInventory()
+      } else if (
+        response.error.code === 'CONFLICT' &&
+        addOperationRef.current === operation
+      ) {
+        await reloadAfterVersionConflict()
+        setCanRetryAdd(true)
       } else if (addOperationRef.current === operation) {
         setCartError(response.error.message)
         setCanRetryAdd(true)
@@ -207,6 +269,7 @@ export function OrderBuilderPreview({
     setCartError(null)
     try {
       const response = await cartClient.editCartItem(editingItemId, {
+        cartVersion: cartSnapshot?.version ?? 0,
         configuration,
         quantity: itemQuantity,
       })
@@ -215,6 +278,8 @@ export function OrderBuilderPreview({
         setCartServerTime(response.meta.serverTime)
         cancelEdit()
         await refreshInventory()
+      } else if (response.error.code === 'CONFLICT') {
+        await reloadAfterVersionConflict()
       } else setCartError(response.error.message)
     } catch (error) {
       setCartError(toMessage(error, 'Unable to save changes'))
@@ -242,12 +307,16 @@ export function OrderBuilderPreview({
 
   async function removeCartItem(cartItemId: string): Promise<void> {
     setMutationPending(true)
-    const response = await cartClient.removeCartItem(cartItemId)
+    const response = await cartClient.removeCartItem(cartItemId, {
+      cartVersion: cartSnapshot?.version ?? 0,
+    })
     if (response.ok) {
       setCartSnapshot(response.data.cart)
       setCartServerTime(response.meta.serverTime)
       if (editingItemId === cartItemId) cancelEdit()
       await refreshInventory()
+    } else if (response.error.code === 'CONFLICT') {
+      await reloadAfterVersionConflict()
     } else setCartError(response.error.message)
     setMutationPending(false)
   }
@@ -475,6 +544,7 @@ export function OrderBuilderPreview({
           <CheckoutPanel
             cart={cartSnapshot}
             priceClient={priceClient}
+            onVersionConflict={reloadAfterVersionConflict}
             onCartChanged={(cart, serverTime) => {
               setCartSnapshot(cart)
               setCartServerTime(serverTime)

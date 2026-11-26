@@ -20,6 +20,7 @@ describe('atomic checkout and persistent orders', () => {
         idempotencyKey: 'add-a',
         configuration: configurationA(),
         quantity: 1,
+        cartVersion: 0,
       }),
     )
 
@@ -48,7 +49,9 @@ describe('atomic checkout and persistent orders', () => {
 
   it('rejects an empty or fully expired cart without creating an order', async () => {
     const emptyHarness = createHarness()
-    const empty = await emptyHarness.orders.checkout(checkoutRequest('empty'))
+    const empty = await emptyHarness.orders.checkout(
+      checkoutRequest('empty', 0),
+    )
     expect(empty.result).toEqual({
       ok: false,
       error: { code: 'EMPTY_CART', message: 'Cart has no active items' },
@@ -60,10 +63,12 @@ describe('atomic checkout and persistent orders', () => {
       idempotencyKey: 'expiring-add',
       configuration: configurationA(),
       quantity: 1,
+      cartVersion: 0,
     })
     expiredHarness.advance(300_000)
+    const expiredCart = successful(await expiredHarness.cart.getCart())
     const expired = await expiredHarness.orders.checkout(
-      checkoutRequest('expired-pay'),
+      checkoutRequest('expired-pay', expiredCart.version),
     )
     const snapshot = await expiredHarness.store.getSnapshot()
 
@@ -82,6 +87,7 @@ describe('atomic checkout and persistent orders', () => {
       idempotencyKey: 'add-once',
       configuration: configurationA(),
       quantity: 1,
+      cartVersion: 0,
     })
     const request = checkoutRequest('one-logical-pay')
     const [first, replay] = await Promise.all([
@@ -116,6 +122,7 @@ describe('atomic checkout and persistent orders', () => {
       idempotencyKey: 'failure-add',
       configuration: configurationA(),
       quantity: 1,
+      cartVersion: 0,
     })
     const before = await harness.store.getSnapshot()
     failures.fail = true
@@ -198,6 +205,7 @@ describe('atomic checkout and persistent orders', () => {
       idempotencyKey: 'persist-add',
       configuration: configurationA(),
       quantity: 1,
+      cartVersion: 0,
     })
     successful(await firstService.checkout(checkoutRequest('persist-pay')))
     await firstStore.dispose?.()
@@ -267,11 +275,15 @@ function createHarness(failures?: CheckoutFailureInjector) {
   }
 }
 
-function checkoutRequest(idempotencyKey: string): CheckoutRequest {
+function checkoutRequest(
+  idempotencyKey: string,
+  cartVersion = 1,
+): CheckoutRequest {
   return {
     idempotencyKey,
     paymentMethod: 'card',
     attemptedCouponCode: null,
+    cartVersion,
   }
 }
 

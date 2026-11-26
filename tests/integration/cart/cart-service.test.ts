@@ -97,6 +97,7 @@ describe('authoritative cart service', () => {
     const failed = await harness.service.editItem(added.item.id, {
       configuration: configurationBEditAllowed(),
       quantity: 1,
+      cartVersion: 1,
     })
     const after = await harness.store.getSnapshot()
 
@@ -132,13 +133,16 @@ describe('authoritative cart service', () => {
     const edit = await harness.service.editItem(added.item.id, {
       configuration: configurationA(),
       quantity: 1,
+      cartVersion: 2,
     })
     expect(edit.result).toEqual({
       ok: false,
       error: expect.objectContaining({ code: 'RESERVATION_EXPIRED' }),
     })
 
-    const removed = success(await harness.service.removeItem(added.item.id))
+    const removed = success(
+      await harness.service.removeItem(added.item.id, { cartVersion: 2 }),
+    )
     expect(removed.removedCartItemId).toBe(added.item.id)
     expect(removed.cart.items).toEqual([])
     expect(
@@ -155,7 +159,7 @@ describe('authoritative cart service', () => {
 })
 
 describe('cross-tab IndexedDB transactions', () => {
-  it('serializes concurrent stock reservations and cannot oversell delayed tabs', async () => {
+  it('serializes concurrent cart mutations and rejects the stale tab', async () => {
     const context = createSharedContexts('concurrent-stock')
 
     try {
@@ -169,7 +173,7 @@ describe('cross-tab IndexedDB transactions', () => {
       expect(outcomes.filter((result) => result.ok)).toHaveLength(1)
       expect(
         outcomes.filter(
-          (result) => !result.ok && result.error.code === 'INSUFFICIENT_STOCK',
+          (result) => !result.ok && result.error.code === 'CONFLICT',
         ),
       ).toHaveLength(1)
       expect(snapshot.cartItems).toHaveLength(1)
@@ -210,7 +214,7 @@ describe('cross-tab IndexedDB transactions', () => {
         ),
       )
       await context.serviceB.addItem(
-        addRequest('tab-b-consumer', configurationB(), 1),
+        addRequest('tab-b-consumer', configurationB(), 1, 1),
       )
       const draft: EditCartItemRequest = {
         configuration: {
@@ -221,9 +225,19 @@ describe('cross-tab IndexedDB transactions', () => {
           },
         },
         quantity: 1,
+        cartVersion: 1,
       }
+      const staleEdit = await context.serviceA.editItem(tabAItem.item.id, draft)
+      expect(staleEdit.result).toEqual({
+        ok: false,
+        error: expect.objectContaining({ code: 'CONFLICT', currentVersion: 2 }),
+      })
+
       const before = await context.storeA.getSnapshot()
-      const edit = await context.serviceA.editItem(tabAItem.item.id, draft)
+      const edit = await context.serviceA.editItem(tabAItem.item.id, {
+        ...draft,
+        cartVersion: 2,
+      })
       const after = await context.storeB.getSnapshot()
 
       expect(edit.result).toEqual({
@@ -318,8 +332,9 @@ function addRequest(
   idempotencyKey: string,
   configuration: Configuration,
   quantity: number,
+  cartVersion = 0,
 ): AddCartItemRequest {
-  return { idempotencyKey, configuration, quantity }
+  return { idempotencyKey, configuration, quantity, cartVersion }
 }
 
 function success<T>(outcome: {

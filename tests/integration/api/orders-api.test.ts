@@ -40,12 +40,14 @@ describe('checkout and orders mock API', () => {
         selections: { toast: 1, scrambled: 2, sausage: 1, ketchup: 1 },
       },
       quantity: 1,
+      cartVersion: 0,
     })
     const checkout = success(
       await apiClient.checkout({
         idempotencyKey: 'api-order-pay',
         paymentMethod: 'cash',
         attemptedCouponCode: 'MORNING15',
+        cartVersion: 1,
       }),
     )
 
@@ -82,6 +84,7 @@ describe('checkout and orders mock API', () => {
       idempotencyKey: 'empty-api-pay',
       paymentMethod: 'card',
       attemptedCouponCode: null,
+      cartVersion: 0,
     })
     expect(response).toEqual(
       expect.objectContaining({
