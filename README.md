@@ -99,7 +99,7 @@ The injected server clock defaults to 90 seconds ahead of the browser. API respo
 
 ## Race-condition handling
 
-The browser mock server stores one authoritative state record in IndexedDB. Every reserve, edit, remove, expiry, seed initialization, and checkout uses one IndexedDB `readwrite` transaction, so same-origin tabs serialize read-modify-write operations against the latest committed state. BroadcastChannel only tells other tabs to refresh after a commit; it is not used as the lock. Failed edits preserve both the old reservation and the user's client-side draft.
+The browser mock server stores one authoritative state record in IndexedDB. Every reserve, edit, remove, expiry, seed initialization, and checkout uses one IndexedDB `readwrite` transaction, so same-origin tabs serialize read-modify-write operations against the latest committed state. Each cart mutation also sends the last cart version seen by that tab; the server validates it inside the same transaction and returns HTTP 409 with the current version instead of overwriting a newer cart. The client then reloads authoritative cart and inventory state and asks the user to review and retry. BroadcastChannel only announces committed changes; it is not the lock or the conflict decision-maker.
 
 ## Idempotency
 
@@ -119,12 +119,15 @@ Gemini never receives raw orders for arithmetic. Tool names and arguments use a 
 
 ## Persistence and order JSON
 
-The six supplied seed orders load exactly once and are priced at their historical `createdAt` timestamps without consuming current inventory. Successful checkout stores an immutable, schema-versioned order snapshot containing BDT/poisha metadata, menu labels/prices, line configurations, the authoritative pricing breakdown, payment label, and separate attempted-versus-applied coupon fields. IndexedDB preserves orders across refreshes, and Download `orders.json` exports the same documented envelope.
+The six supplied seed orders load exactly once and are priced at their historical `createdAt` timestamps without consuming current inventory. Successful checkout stores an immutable, schema-versioned order snapshot containing BDT/poisha metadata, menu labels/prices, line configurations, the authoritative pricing breakdown, payment label, and separate attempted-versus-applied coupon fields. IndexedDB preserves orders and reservations across refreshes; the first authoritative transaction after reload expires overdue holds once and retains still-valid holds. Download `orders.json` exports the documented order envelope.
+
+The unfinished builder configuration is stored separately in versioned local-storage JSON. On reload it is parsed defensively and revalidated against the current API menu rules and ingredient stock before display. An incomplete or newly out-of-stock draft remains editable but cannot be submitted, an unknown/malformed option draft is discarded, and restoring a draft never creates a reservation or changes server stock.
 
 ## Trade-offs
 
 - A browser-only mock server satisfies the brief and keeps the solution deployable as static assets, but it cannot provide cross-device or hostile-client guarantees.
 - IndexedDB transactions provide genuine same-browser/origin serialization; BroadcastChannel improves freshness but cannot coordinate different browsers or devices.
+- Optimistic cart versions reject stale writes clearly, at the cost of asking the losing tab to review and retry against the reloaded cart.
 - Checkout-time price locking keeps coupon cutoffs correct and preserves immutable historical totals, while cart totals remain estimates until Pay succeeds.
 - Exhaustive answer generation favors explainable correctness over speed; Q2 evaluates over 1.3 million bounded candidates through the real engines and takes several seconds.
 - Calling Gemini directly from the browser is simple for the assessment but exposes the task-scoped key. A production system should proxy calls through a secured backend.
@@ -133,13 +136,13 @@ The six supplied seed orders load exactly once and are priced at their historica
 
 - There is no real authentication, payment processing, backend database, or cross-device synchronization.
 - The Gemini provider was fully mocked in automated tests; a live provider call was not verified because no real key was read or committed.
-- Persisted schemas are versioned but no multi-version migration framework is implemented.
+- Persisted schemas are versioned; the newly added cart version defaults safely for pre-bonus IndexedDB records, but there is no general multi-version migration framework.
 - In environments without IndexedDB, the fallback store is explicitly single-context and in-memory.
 - The assessment filename remains `Assesment.pdf` to preserve the supplied artifact.
 
 ## Unfinished features
 
-Parts A–F and all mandatory acceptance tests are complete. Optional Part G remains unimplemented: explicit stale-cart version conflict UX, persisted unfinished builder drafts, and its additional refresh behavior. Repository push, deployment, Gemini-key creation, and one-shot assessment submission are intentionally left to the user and require explicit permission.
+Parts A–G and all mandatory acceptance tests are complete. Repository push, deployment, Gemini-key creation, a live Gemini-provider check, and the one-shot assessment submission are intentionally left to the user and require explicit permission.
 
 ## Verification and time record
 

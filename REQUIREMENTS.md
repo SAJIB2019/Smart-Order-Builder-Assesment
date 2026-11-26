@@ -113,10 +113,10 @@ Exact pricing order:
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| BG-01 | Refresh retains only reservations that are still valid; server remains source of truth. | Persistent server store | Browser/integration test | Bonus gated |
-| BG-02 | Cart changes carry a version across two tabs; a stale tab receives a conflict and reloads, never silently overwrites. | Versioned cart API + cross-tab channel | Two-context browser test | Bonus gated |
-| BG-03 | Unfinished configuration survives refresh. | Draft repository | Browser/integration test | Bonus gated |
-| BG-04 | Do not start Part G until A–F are correct and tested. | Process | `PROGRESS.md` gate | Complete — A–F are verified; bonus work is now eligible but remains unstarted. |
+| BG-01 | Refresh retains only reservations that are still valid; server remains source of truth. | Persistent server store | Browser/integration test | Complete — IndexedDB retains active holds; the first server transaction after refresh atomically expires overdue holds and releases each allocation once. |
+| BG-02 | Cart changes carry a version across two tabs; a stale tab receives a conflict and reloads, never silently overwrites. | Versioned cart API + cross-tab channel | Two-context browser test | Complete — add/edit/remove/checkout validate `cartVersion` inside the authoritative transaction; 409 conflicts trigger cart/inventory reload and review/retry UX. |
+| BG-03 | Unfinished configuration survives refresh. | Draft repository | Browser/integration test | Complete — schema-versioned local draft restores only after current menu/stock load, is revalidated, and never reserves stock by itself. |
+| BG-04 | Do not start Part G until A–F are correct and tested. | Process | `PROGRESS.md` gate | Complete — the pre-implementation gate passed 35 files/156 tests and all 24 TC-01–TC-20 acceptance executions. |
 
 ## Appendix A — complete fixture/business rules
 
@@ -248,7 +248,7 @@ Every answer must be produced by running the project's own code and include the 
 | AM-05 | Multiple possible `overrideLimit` rules, conflicting overrides, and multiple simultaneous promotions beyond this fixture are not defined. | Part A uses deterministic API order: if multiple active overrides target one group, the last supplied rule wins. The official fixture has only one such rule; revisit only if the API contract is expanded. |
 | AM-06 | “How many more units can be added” can be constrained by stock, group rules, cross-rules, and quantity context; the phrase does not specify whether the number is stock-only. | Prefer the maximum immediately addable under both ingredient stock and current configuration validity, then verify during implementation; document UI semantics. |
 | AM-07 | The exact response contracts/status codes for mock endpoints are unspecified. | Resolved for Part D: typed success/error envelopes map validation 400, missing 404, stock/idempotency/expiry conflicts 409, transient 503, and invariant failures 500. Later endpoint families will extend the same contract. |
-| AM-08 | D1 assumes two tabs share one server, while per-tab MSW in-memory state is not inherently shared. | Resolved for mandatory cart mutations: browser MSW handlers use shared same-origin IndexedDB transactions and BroadcastChannel refresh signals; Node/non-IDB fallback remains explicitly single-context. Optional stale-version UX is still Part G. |
+| AM-08 | D1 assumes two tabs share one server, while per-tab MSW in-memory state is not inherently shared. | Resolved: browser MSW handlers use shared same-origin IndexedDB transactions; explicit cart versions reject stale writes and reload authoritative state. BroadcastChannel only announces commits, and Node/non-IDB fallback remains explicitly single-context. |
 | AM-09 | Price-lock semantics are intentionally open and interact with historical pricing and TC-06/07. | Resolved in D2: previews/cart totals are current estimates; checkout stores the immutable authoritative breakdown; seeds use historical `createdAt`. |
 | AM-10 | Seed initialization identity (“first start”) and reset behavior are unspecified. | Resolved for Part E: persistent state records the initialized seed schema version, inserts only missing official IDs once, and deterministic stores provide clean test initialization without subtracting historical sales from inventory. |
 | AM-11 | Browser-to-Gemini calls expose the runtime key to the browser by design for this assessment. | Treat this as assessment-only, use a task-scoped free key, document the production limitation, and never commit it. |
@@ -262,7 +262,7 @@ Every answer must be produced by running the project's own code and include the 
 | Async races and injected random failures | Stale price or flaky tests | Implemented: abort plus generation/config/request identity checks; dependency-injected latency/RNG; fake-timer coverage. |
 | Partial or duplicate stock mutations | Phantom holds, overselling, incorrect edit releases | Implemented single atomic transaction, commit-after-validation assignments, server idempotency records, and injected-failure tests. |
 | Browser/server clock skew | Incorrect countdown/expiry and TC-15 failure | Implemented response-derived server offset, injected clocks, fake-timer countdown tests, and server-authoritative expiry. |
-| Cross-tab consistency with browser-only MSW | Lost edits or divergent stock | Implemented same-origin IndexedDB write transactions for mandatory mutual exclusion; BroadcastChannel only refreshes readers; cross-device sync is out of scope. |
+| Cross-tab consistency with browser-only MSW | Lost edits or divergent stock | Same-origin IndexedDB write transactions serialize commits; cart-version conflicts reject stale writes and reload authoritative state; cross-device sync is out of scope. |
 | Persisted schema evolution | Duplicate/corrupt seed orders or invalid export | Implemented schema/version markers, strict supplied-file validation, insert-missing seed initialization, immutable order snapshots, and D6 export tests. |
 | Gemini nondeterminism, quota, and prompt hallucination | Wrong answers or flaky tests | Closed function/tool registry, code-owned numbers, unsupported-query guard, mocked tests, clear errors. |
 | Data-driven UI accidentally relies on fixture IDs | Fails alternate-menu review | Render groups/options from response; engines use declarative rule/recipe data; alternate fixture tests. |

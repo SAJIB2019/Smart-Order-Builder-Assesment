@@ -4,7 +4,7 @@ Last updated: 2026-11-26 (Asia/Dhaka)
 
 ## Current state
 
-**Phase:** Mandatory implementation, acceptance verification, computed answers, and submission documentation complete.
+**Phase:** Parts A–G, acceptance verification, computed answers, and submission documentation complete.
 
 | Area | Status | Evidence / next gate |
 |---|---|---|
@@ -22,7 +22,7 @@ Last updated: 2026-11-26 (Asia/Dhaka)
 | Part E | Complete | Atomic Pay, sold-stock conversion, seed initialization/historical pricing, persistent versioned orders, JSON download, D4/D6, and TC-16–TC-17 pass. |
 | Part F | Complete | Pure statistics, closed Gemini function calling, latest-order reads, chat/error/Retry UI, D5/C2, and TC-18–TC-20 pass. |
 | Complete UI | Complete | Responsive builder, cart/edit/reservations, coupon-aware checkout, orders history/export, and assistant are connected to authoritative APIs. |
-| Part G | Eligible, not started | A–F gate is satisfied; bonus work still requires a separate user instruction. |
+| Part G | Complete | Refresh-safe reservations, transactional cart versions/conflict reload, and revalidated unfinished drafts are implemented and deterministically tested. |
 | Required `ANSWERS.md` | Complete | `npm run answers` computes Q1–Q8 from official data and production engines; Q3/Q8 include working. |
 | Required final `README.md` | Complete | Setup, architecture, engines, concurrency, trade-offs, limitations, unfinished work, and time-record status documented. |
 | Submission/deployment | Not authorized | Never push, deploy, paste keys, or submit without user permission. |
@@ -163,6 +163,15 @@ Last updated: 2026-11-26 (Asia/Dhaka)
 - Added the final `README.md` covering setup, commands, architecture, engines, reservations/time, races, idempotency, Gemini, persistence, trade-offs, limitations, unfinished Part G work, and the absence of a reliable hours record.
 - Confirmed `.env.example` contains exactly `VITE_GEMINI_API_KEY=` and no secret value.
 
+### 2026-11-26 — Part G bonus persistence and versioning
+
+- Re-ran the complete mandatory suite before bonus work: 35 files/156 tests passed, followed by all 24 acceptance executions covering TC-01–TC-20.
+- Kept reservations in the authoritative IndexedDB state across refreshes. Each transaction expires overdue active holds against server time, increments the cart version once when the cart changes, and cannot release an already-ended allocation again.
+- Added a dedicated cart version distinct from the store's internal transaction version. Add, edit, remove, and checkout now carry and validate `cartVersion` within the same authoritative transaction; exact idempotency replays remain successful even when the original request version is old.
+- Added 409 conflict handling that reloads authoritative cart and inventory state, preserves the pending configuration/edit, and requires an explicit review/retry instead of overwriting another tab.
+- Added a schema-versioned unfinished-configuration repository. Restored drafts are parsed and revalidated against current API menu rules and stock, while incomplete or unavailable drafts remain unreserved and cannot bypass normal Add validation.
+- Added deterministic fake-IndexedDB refresh/two-tab tests plus RTL coverage for unfinished-draft restoration and automatic authoritative reload after a conflict.
+
 ## Verification log
 
 | Date | Check | Result |
@@ -257,10 +266,20 @@ Last updated: 2026-11-26 (Asia/Dhaka)
 | 2026-11-26 | Documentation phase `npm run format:check` | Passed. |
 | 2026-11-26 | Documentation phase `npm run build` | Passed; Vite production bundle generated successfully. |
 | 2026-11-26 | `.env.example` secret check | Passed: one empty `VITE_GEMINI_API_KEY=` declaration; no real key. |
+| 2026-11-26 | Part G pre-implementation `npm run test` | Passed: 35 files, 156 tests. |
+| 2026-11-26 | Part G pre-implementation acceptance suite | Passed: 7 files, 24 executions covering TC-01–TC-20. |
+| 2026-11-26 | Part G focused tests | Passed: 2 files, 9 tests for refresh, expiry, conflicts/reload, and draft restoration. |
+| 2026-11-26 | Part G final `npm run typecheck` | Passed with strict TypeScript. |
+| 2026-11-26 | Part G final `npm run lint` | Passed with zero warnings. |
+| 2026-11-26 | Part G final full `npm run test` | Passed: 36 files, 164 tests. |
+| 2026-11-26 | Part G final `npm run test:coverage` | Passed: 84.41% statements, 74.44% branches, 87.99% functions, 86.40% lines. |
+| 2026-11-26 | Part G final `npm run build` | Passed; Vite production bundle generated successfully. |
+| 2026-11-26 | Part G final `npm run answers` | Passed: Q1–Q8 recomputed from production engines. |
+| 2026-11-26 | Part G final `npm run format:check` | Passed. |
 
 ## Next step (wait for user instruction)
 
-Wait for the user's next instruction. Mandatory Parts A–F, the complete UI, TC-01–TC-20 verification, `ANSWERS.md`, and `README.md` are complete. The user must personally review `DECISIONS.md`; optional Part G, a live Gemini-key check, push/deployment, and the one-shot submission remain permission-gated or user-owned.
+Wait for the user's next instruction. Parts A–G, the complete UI, TC-01–TC-20 verification, `ANSWERS.md`, and `README.md` are complete. The user must personally review `DECISIONS.md`; a live Gemini-key check, push/deployment, and the one-shot submission remain permission-gated or user-owned.
 
 ## Update template for every future implementation step
 

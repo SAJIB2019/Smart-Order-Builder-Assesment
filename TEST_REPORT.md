@@ -5,7 +5,8 @@
 - Source of truth: all four visually inspected pages of `Assesment.pdf`, including Section 9 configurations A, B, and C.
 - Acceptance command: `npx vitest run tests/acceptance --reporter=verbose`.
 - Acceptance result: **7 files passed, 24 tests passed**. TC-08 through TC-11 intentionally execute at both pure-domain and authoritative-service levels.
-- Current full regression result: **35 files passed, 156 tests passed**, including the executable Section 10 answer generator.
+- Pre-bonus gate: **35 files passed, 156 tests passed**, followed by **7 acceptance files / 24 acceptance executions passed** for TC-01–TC-20.
+- Current full regression result: **36 files passed, 164 tests passed**, including the executable Section 10 answer generator and deterministic Part G coverage.
 - Tests use injected clocks/failures/IDs, fake timers, controlled promises, MSW, React Testing Library, fake IndexedDB, and mocked Gemini model clients. No live Gemini request or uncontrolled test randomness is used.
 
 ## Canonical Section 9 configurations
@@ -46,13 +47,24 @@
 - `tests/unit/domain/pricing/price-cart.test.ts` replaces product/group/option/promotion IDs and proves promotion interpretation remains definition-driven.
 - `tests/integration/features/complete-order-workflow.test.tsx` supplies a modified API menu and proves React renders it without component changes.
 
+## Part G bonus evidence
+
+| Bonus scenario                          | Actual result                                                                                                                                                               | Test file                                                                                                | Status |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------ |
+| Refresh with active reservation         | A fresh IndexedDB store context retained the item, active hold, cart version 1, and egg stock 8.                                                                            | `tests/integration/bonus/part-g-bonus.test.ts`                                                           | PASS   |
+| Refresh with expired reservation        | First refreshed transaction marked the hold expired and restored egg stock to 10; a second refresh kept version/stock unchanged.                                            | `tests/integration/bonus/part-g-bonus.test.ts`                                                           | PASS   |
+| Concurrent mutations from two tabs      | Two independent contexts submitted version 0; one committed and the other received conflict/current version 1.                                                              | `tests/integration/bonus/part-g-bonus.test.ts`                                                           | PASS   |
+| Stale conflict and authoritative reload | Losing tab reloaded the winner's exact item/version, then retried at version 1 and committed version 2.                                                                     | `tests/integration/bonus/part-g-bonus.test.ts`                                                           | PASS   |
+| UI authoritative reload                 | RTL observed a 409 response, a second Get Cart call, the authoritative cart row, and review/retry feedback.                                                                 | `tests/integration/features/order-builder-cart.test.tsx`                                                 | PASS   |
+| Unfinished configuration restoration    | RTL unmounted/remounted the builder and restored Toast ×1/item quantity 2 without Add; pure coverage revalidated incomplete and out-of-stock drafts without stock mutation. | `tests/integration/features/order-builder-cart.test.tsx`, `tests/integration/bonus/part-g-bonus.test.ts` | PASS   |
+
 ## Final command results
 
 | Command                 | Result                                                                      |
 | ----------------------- | --------------------------------------------------------------------------- |
 | `npm run typecheck`     | PASS                                                                        |
 | `npm run lint`          | PASS, zero warnings                                                         |
-| `npm run test`          | PASS, 35 files / 156 tests                                                  |
-| `npm run test:coverage` | PASS, 84.95% statements / 74.76% branches / 87.68% functions / 86.94% lines |
+| `npm run test`          | PASS, 36 files / 164 tests                                                  |
+| `npm run test:coverage` | PASS, 84.41% statements / 74.44% branches / 87.99% functions / 86.40% lines |
 | `npm run build`         | PASS, Vite production build completed                                       |
 | `npm run format:check`  | PASS                                                                        |

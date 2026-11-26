@@ -4,13 +4,13 @@ The PDF requires D1–D6 to be answered in the author's own words (3–6 sentenc
 
 ## D1 — Concurrent stock loss during edit
 
-**Status: RESOLVED — shared IndexedDB transaction with preserved client draft.**
+**Status: RESOLVED — shared IndexedDB transaction, optimistic cart version, and preserved client draft.**
 
 > **Personal review required:** Approve or rewrite this explanation in your own words before submission.
 
 Two browser tabs share one server. Tab A is editing an item when tab B takes the last eggs. What does tab A see when it saves, and does the user lose anything they typed?
 
-I keep the authoritative mock-server state in one same-origin IndexedDB record and execute each reserve, edit, remove, or expiry cleanup as one `readwrite` transaction; IndexedDB serializes overlapping writers across tabs, so every operation validates against the latest committed stock. If Tab B takes the last eggs before Tab A saves, Tab A's atomic edit returns every current shortage, while the existing item/reservation stays unchanged and the form retains the unsaved values. Tab A sees the current shortage, such as “Short: 1 egg,” and can adjust or retry without an automatic overwrite. BroadcastChannel is used only to prompt other tabs to refresh after commits, not as the lock, and this guarantee is limited to tabs in the same browser profile/origin; environments without IndexedDB fall back to explicitly single-context memory rather than pretending to be shared.
+I keep the authoritative mock-server state in one same-origin IndexedDB record and execute each reserve, edit, remove, expiry cleanup, or checkout as one `readwrite` transaction. Every cart mutation carries the tab's last cart version, so if Tab B commits first, Tab A receives a conflict, reloads the authoritative cart and inventory, retains its unsaved form values, and is asked to review and retry instead of silently overwriting B. On that retry the same atomic edit can report the current shortage, such as “Short: 1 egg,” while the original item and reservation remain unchanged. BroadcastChannel only announces commits, and this guarantee is limited to the same browser profile/origin; the non-IndexedDB fallback is explicitly single-context.
 
 ## D2 — Price lock timing
 
