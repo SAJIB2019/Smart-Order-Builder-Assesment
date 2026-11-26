@@ -1,0 +1,58 @@
+# Official Acceptance Test Report
+
+## Verification basis
+
+- Source of truth: all four visually inspected pages of `Assesment.pdf`, including Section 9 configurations A, B, and C.
+- Acceptance command: `npx vitest run tests/acceptance --reporter=verbose`.
+- Acceptance result: **7 files passed, 24 tests passed**. TC-08 through TC-11 intentionally execute at both pure-domain and authoritative-service levels.
+- Full regression result: **34 files passed, 155 tests passed**.
+- Tests use injected clocks/failures/IDs, fake timers, controlled promises, MSW, React Testing Library, fake IndexedDB, and mocked Gemini model clients. No live Gemini request or uncontrolled test randomness is used.
+
+## Canonical Section 9 configurations
+
+- **A:** Toast ×1, Scrambled ×2, Chicken Sausage ×1, Ketchup ×1.
+- **B:** Croissant ×1, Omelette ×2, Fried ×2, Chicken Sausage ×1, Beef Bacon ×1, Hash Brown ×1, Mushroom ×1, Hollandaise ×1.
+- **C:** Paratha ×1, Fried ×2, Tofu ×1, Cheese ×2, Baked Beans ×1, Mushroom ×1, Chili ×1.
+
+## Results
+
+| Test ID | Official expected result                                                                                       | Actual result                                                                                                                         | Test file                                                                                                                     | Status |
+| ------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------ |
+| TC-01   | Scrambled ×3 is blocked because Eggs total must be 2–6 in steps of 2.                                          | Exact step violation returned with Eggs group ID.                                                                                     | `tests/acceptance/part-a-rules.acceptance.test.ts`                                                                            | PASS   |
+| TC-02   | Croissant with 3 Extras is blocked; Croissant overrides Extras maximum to 2.                                   | Exact active override violation returned and identified by rule ID.                                                                   | `tests/acceptance/part-a-rules.acceptance.test.ts`                                                                            | PASS   |
+| TC-03   | Hollandaise with Fried only is blocked because Hollandaise requires Scrambled or Omelette.                     | Exact requirement violation returned with rule ID.                                                                                    | `tests/acceptance/part-a-rules.acceptance.test.ts`                                                                            | PASS   |
+| TC-04   | Tofu + Beef Bacon and Chili + Hollandaise are both blocked; both exclusions are listed.                        | Both exact exclusion violations returned together.                                                                                    | `tests/acceptance/part-a-rules.acceptance.test.ts`                                                                            | PASS   |
+| TC-05   | Unit prices: A = 380.00, B = 679.50, C = 490.00 BDT.                                                           | Returned 38,000, 67,950, and 49,000 poisha exactly.                                                                                   | `tests/acceptance/part-c-pricing.acceptance.test.ts`                                                                          | PASS   |
+| TC-06   | B ×1 + C ×2 at 10:59:59: subtotal 1,659.50; C2 discount 150.00 wins; VAT 75.48; payable 1,585 BDT.             | Full breakdown matched: 165,950 subtotal, 15,000 C2, 7,548 VAT, 158,498 pre-round and 158,500 poisha payable.                         | `tests/acceptance/part-c-pricing.acceptance.test.ts`                                                                          | PASS   |
+| TC-07   | Same cart at exactly 11:00:00 with coupon entered: coupon rejected; C1 = 100.00; VAT 77.98; payable 1,637 BDT. | Coupon recorded but rejected at cutoff; exact C1, VAT, and payable matched.                                                           | `tests/acceptance/part-c-pricing.acceptance.test.ts`                                                                          | PASS   |
+| TC-08   | Reserving B ×1 + C ×2 leaves egg 0, cheese 0, croissant 1; another egg-dependent item is blocked.              | Exact stock remained; additional egg allocation was rejected.                                                                         | `tests/acceptance/part-b-stock.acceptance.test.ts`, `tests/acceptance/part-d-cart-reservations.acceptance.test.ts`            | PASS   |
+| TC-09   | Editing B to Omelette ×3 + Fried ×1 is blocked with `Short: 1 egg`, counting B's own hold as available.        | Exact shortage returned; original item, reservation, and stock remained unchanged.                                                    | `tests/acceptance/part-b-stock.acceptance.test.ts`, `tests/acceptance/part-d-cart-reservations.acceptance.test.ts`            | PASS   |
+| TC-10   | Editing B to Omelette ×1 + Fried ×3 succeeds; B = 643.50 and egg remaining = 1.                                | Atomic edit succeeded with 64,350-poisha unit price and one egg remaining.                                                            | `tests/acceptance/part-b-stock.acceptance.test.ts`, `tests/acceptance/part-d-cart-reservations.acceptance.test.ts`            | PASS   |
+| TC-11   | Increasing C quantity 2 → 3 is blocked with `Short: 2 egg, 2 cheese`.                                          | Both exact shortages returned; no partial edit occurred.                                                                              | `tests/acceptance/part-b-stock.acceptance.test.ts`, `tests/acceptance/part-d-cart-reservations.acceptance.test.ts`            | PASS   |
+| TC-12   | Out-of-order pricing responses never replace the newest configuration price.                                   | Controlled newer B response displayed 67,950 poisha; later A response was ignored even when cancellation was ineffective.             | `tests/acceptance/part-c-async-preview.acceptance.test.tsx`                                                                   | PASS   |
+| TC-13   | Three rapid Add clicks create exactly one cart item and one reservation.                                       | Three concurrent server requests with one logical key replayed one hold; RTL also proved the UI sends one request.                    | `tests/acceptance/part-d-cart-reservations.acceptance.test.ts`, `tests/integration/features/order-builder-cart.test.tsx`      | PASS   |
+| TC-14   | A mid-reservation failure holds no stock, preserves configuration, and Retry succeeds.                         | No item/reservation/idempotency record or egg deduction remained; MSW/RTL retained A and retried the same logical key successfully.   | `tests/acceptance/part-d-cart-reservations.acceptance.test.ts`, `tests/integration/features/complete-order-workflow.test.tsx` | PASS   |
+| TC-15   | At 5:00 server time, stock is released, the item is read-only, and countdown follows server time.              | +90,000 ms offset and 300,000 ms countdown matched; exact-boundary expiry released once, rejected edit, and allowed removal.          | `tests/acceptance/part-d-cart-reservations.acceptance.test.ts`                                                                | PASS   |
+| TC-16   | Two rapid Pay clicks create one order, empty the cart, and sold stock is never released by expiry.             | Concurrent requests produced one seventh order and one sold reservation; cart emptied and egg stock stayed at 8 after cleanup.        | `tests/acceptance/part-e-checkout-orders.acceptance.test.ts`                                                                  | PASS   |
+| TC-17   | After refresh, orders persist and downloaded `orders.json` is valid D6 JSON.                                   | Fresh IndexedDB context loaded all 7 orders; parsed export had schema v1, BDT/poisha fields, and exact new-order coupon/pricing data. | `tests/acceptance/part-e-checkout-orders.acceptance.test.ts`                                                                  | PASS   |
+| TC-18   | Bot order count after one checkout differs from seed count by exactly one without reload.                      | Same assistant instance returned 6 before checkout and 7 after checkout.                                                              | `tests/acceptance/part-f-sales-assistant.acceptance.test.ts`                                                                  | PASS   |
+| TC-19   | Best-selling option equals deterministic stats and changes with review data.                                   | Official seeds returned Fried ×10; modified data returned Scrambled ×17, matching the pure stats function.                            | `tests/acceptance/part-f-sales-assistant.acceptance.test.ts`                                                                  | PASS   |
+| TC-20   | “Who is our best customer?” explains the data limitation and invents no name.                                  | Returned the exact deterministic limitation; no customer name or model phrasing call occurred.                                        | `tests/acceptance/part-f-sales-assistant.acceptance.test.ts`                                                                  | PASS   |
+
+## Generic-engine evidence
+
+- `tests/unit/domain/rules/validate.test.ts` replaces assessment group/option IDs and proves `overrideLimit` and `requires` remain data-driven.
+- `tests/unit/domain/stock/stock-engine.test.ts` replaces ingredient/option IDs and proves shared consumption remains ingredient-driven.
+- `tests/unit/domain/pricing/price-cart.test.ts` replaces product/group/option/promotion IDs and proves promotion interpretation remains definition-driven.
+- `tests/integration/features/complete-order-workflow.test.tsx` supplies a modified API menu and proves React renders it without component changes.
+
+## Final command results
+
+| Command                 | Result                                                                      |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `npm run typecheck`     | PASS                                                                        |
+| `npm run lint`          | PASS, zero warnings                                                         |
+| `npm run test`          | PASS, 34 files / 155 tests                                                  |
+| `npm run test:coverage` | PASS, 85.33% statements / 75.90% branches / 87.90% functions / 87.28% lines |
+| `npm run build`         | PASS, Vite production build completed                                       |
+| `npm run format:check`  | PASS                                                                        |

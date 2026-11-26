@@ -183,13 +183,15 @@ Canonical configurations:
 | TC-11 | In that cart, change C quantity 2 → 3 | Blocked: `Short: 2 egg, 2 cheese` (all shortages listed) | Complete — ordered complete server shortage assertion |
 | TC-12 | Pricing responses return out of order | Only the latest configuration's price is ever displayed | Complete — fake-timer hook acceptance test resolves the newer request first, then the ignored-abort older request, without replacing the latest price |
 | TC-13 | Add to Cart clicked 3 times quickly | Exactly one cart item and one reservation | Complete — UI disables after the first request; server-level concurrent retries still replay one idempotent item/reservation. |
-| TC-14 | Reserve call fails mid-way | No stock is held; configuration is kept; Retry works | Complete — injected pre-commit failure and same-request retry assertion |
+| TC-14 | Reserve call fails mid-way | No stock is held; configuration is kept; Retry works | Complete — injected pre-commit failure plus MSW/RTL prove zero phantom stock, retained controls, and successful same-key Retry. |
 | TC-15 | Reservation passes 5:00 (server time) | Stock released; item read-only; countdown matched server, not browser | Complete — exact expiry, offset countdown, edit rejection, and removal assertion |
 | TC-16 | Pay clicked twice quickly | Exactly one order; cart empty; sold stock is not released again | Complete — concurrent Pay acceptance test asserts one new order, one sold reservation, empty cart, and unchanged sold-stock deduction after expiry cleanup |
 | TC-17 | Refresh after checkout, then Download `orders.json` | Orders are still there; file is valid JSON in the shape documented in D6 | Complete — IndexedDB context recreation retains all seven orders and the serialized D6 envelope parses with the exact new order |
 | TC-18 | Ask bot “How many orders?” after seed load, then after one checkout | The two answers differ by exactly one, with no reload | Complete — one assistant instance reads 6 then the newly persisted seventh order. |
-| TC-19 | Ask bot for the best-selling option | Same answer as the stats function; review data will be changed | Complete — assistant result equals the pure function against modified order data. |
+| TC-19 | Ask bot for the best-selling option | Same answer as the stats function; review data will be changed | Complete — official seeds are pinned to Fried ×10, then changed review data produces Scrambled ×17 and equals the pure function. |
 | TC-20 | Ask bot “Who is our best customer?” | It explains it cannot know from this data; it does not invent a name | Complete — exact limitation text, no name, and no model phrasing turn. |
+
+Independent QA evidence and the exact executed result for every official case are recorded in `TEST_REPORT.md`. The final acceptance-only run passed 7 files / 24 tests; the full regression run passed 34 files / 155 tests.
 
 Official tests are immutable: implementation may add coverage but may not weaken these scenarios or expected values.
 

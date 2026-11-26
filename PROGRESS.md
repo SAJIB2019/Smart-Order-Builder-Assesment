@@ -143,6 +143,16 @@ Last updated: 2026-11-26 (Asia/Dhaka)
 - Added full RTL workflow coverage using real mock-server services for build → reserve → edit → coupon → pay → history, plus alternate API-menu rendering and authoritative store assertions.
 - Manually verified the live browser at 1440×1000 and 390×844. Desktop and mobile had no application console errors; the mobile document measured 390px content/viewport width after fixing grid min-content overflow.
 
+### 2026-11-26 — Independent official acceptance QA
+
+- Re-read all four rendered assessment pages and independently transcribed canonical configurations A, B, and C plus every Section 9 expected result.
+- Audited the complete implementation and existing test suite for exact-value assertions, deterministic async behavior, mock-server transaction boundaries, and mocked Gemini execution.
+- Executed explicit TC-01–TC-20 tests. TC-08–TC-11 run at both pure-domain and authoritative-service levels, producing 24 passing acceptance executions across 7 files.
+- Strengthened TC-19 to pin the official seed result (Fried ×10) before proving that modified review data changes the answer to Scrambled ×17.
+- Added MSW/RTL TC-14 coverage proving a failed reservation retains configuration, holds no stock, creates no idempotency record, and succeeds on Retry with the same logical key. Labeled the existing RTL triple-click test explicitly as TC-13.
+- Reconfirmed generic behavior with alternate rule IDs, ingredient IDs, pricing promotion IDs, and a modified API-rendered menu.
+- Created `TEST_REPORT.md` with exact official expectations, observed results, source files, and PASS status for all 20 cases.
+
 ## Verification log
 
 | Date | Check | Result |
@@ -221,10 +231,18 @@ Last updated: 2026-11-26 (Asia/Dhaka)
 | 2026-11-26 | Complete UI `npm run build` | Passed; main bundle 256.23 kB and lazy assistant bundle 436.23 kB, with no chunk-size warning. |
 | 2026-11-26 | Desktop browser 1440×1000 | Passed: two-column builder/sticky total, all staff sections rendered, MSW data loaded, and no application console errors. |
 | 2026-11-26 | Mobile browser 390×844 | Passed: single-column controls, all navigation links available, document width exactly matched viewport width, and no application console errors. |
+| 2026-11-26 | Independent acceptance-only run | Passed: 7 files, 24 executed tests covering TC-01–TC-20; TC-08–TC-11 executed at two layers. |
+| 2026-11-26 | Independent QA targeted RTL/MSW | Passed: 3 files, 7 tests including rapid Add TC-13 and failure/Retry TC-14. |
+| 2026-11-26 | Independent QA `npm run typecheck` | Passed with strict TypeScript. |
+| 2026-11-26 | Independent QA `npm run lint` | Passed with zero warnings. |
+| 2026-11-26 | Independent QA full `npm run test` | Passed: 34 files, 155 tests. |
+| 2026-11-26 | Independent QA `npm run test:coverage` | Passed: 85.33% statements, 75.90% branches, 87.90% functions, 87.28% lines. |
+| 2026-11-26 | Independent QA `npm run format:check` | Passed. |
+| 2026-11-26 | Independent QA `npm run build` | Passed; Vite production bundle generated successfully. |
 
 ## Next step (wait for user instruction)
 
-Wait for the user's next instruction. Parts A–F and the complete frontend UI are done; Part G may now begin, or the required `ANSWERS.md`/final `README.md` can be completed when requested.
+Wait for the user's next instruction. Parts A–F, the complete frontend UI, and independent TC-01–TC-20 verification are done; Part G may now begin, or the required `ANSWERS.md`/final `README.md` can be completed when requested.
 
 ## Update template for every future implementation step
 
