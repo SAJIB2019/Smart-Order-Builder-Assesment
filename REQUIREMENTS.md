@@ -10,8 +10,8 @@ The assessment is a logic assessment, not a design assessment. A plain, clean, r
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Partial — React 19, strict TypeScript, Vite, MSW, Vitest/RTL and coverage configured; Gemini integration remains gated by C2. |
-| G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Partial — browser/Node MSW now serves menu, stock, pricing, cart, inventory, reservations, checkout, persistent orders, and export; assistant handlers remain pending. |
+| G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Complete — React 19, strict TypeScript, Vite, MSW, Vitest/RTL, coverage, and the supported `gemini-3.8-flash` SDK client are configured. |
+| G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Complete — all application data operations remain in browser MSW/persistent mock-server services; only the assessment-authorized Gemini browser call leaves the app. |
 | G-03 | AI tools are allowed, but every line must be explainable, debuggable, and changeable live. | Entire codebase | Review/interview readiness | Pending |
 | G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Partial — the rules, stock, and pricing engines are data-driven and pass alternate-ID/ingredient/promotion fixtures; UI and later engines remain pending. |
 | G-05 | No hardcoded option IDs, names, or limits in components or engine code. | Domain/features | Static review + alternate-fixture tests | Partial — assessment-specific definitions remain isolated to the official fixture and none of the completed engines contains assessment-specific branches; later engines/components remain pending. |
@@ -98,16 +98,16 @@ Exact pricing order:
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| F-01 | Add staff chat for plain-English sales questions; Bangla is optional. Use Gemini free tier with a Flash model. | Assistant feature/client | Mocked integration + optional manual check | Pending |
-| F-02 | At minimum answer: order count, total revenue, best-selling option by units, revenue by payment method, average order value, number of orders that received the coupon, and orders on a given date. | `domain/stats` + tool registry | Stats unit tests + tool routing tests | Pending |
-| F-03 | Numerical results come from code only. Gemini function calling selects one pure function over orders JSON and phrases its result; do not ask Gemini to total raw orders. | Stats tools/Gemini orchestration | Contract tests | Pending |
-| F-04 | Results reflect a checkout immediately without reload. | Shared order query state | TC-18 | Pending |
-| F-05 | If data cannot answer a question, the bot says so and does not guess. | Assistant policy/tool fallback | TC-20 | Pending |
-| F-06 | Read `VITE_GEMINI_API_KEY` from `.env.local`; never commit a real key. Commit `.env.example` containing only the variable name. Create a task-only free key and place it in the submission form for reviewer use. | Environment/Gemini client | Secret scan + config test | Pending |
-| F-07 | Show distinct clear messages for missing key, invalid key, quota/429, and network errors. | Assistant UI/error mapper | Unit + RTL | Pending |
-| F-08 | Unit-test stats on seed data and mock Gemini in all automated tests. | Tests | Test run | Pending |
-| F-09 | Complete C2 before Gemini work by mapping each supported question to exact function name, inputs, and output. | `DECISIONS.md` | Review | Blocked by checkpoint C2 |
-| F-10 | Resolve D5 for unsupported “best customer” requests and prevent invented names. | `DECISIONS.md` + assistant guardrails | TC-20 | Blocked by decision D5 |
+| F-01 | Add staff chat for plain-English sales questions; Bangla is optional. Use Gemini free tier with a Flash model. | Assistant feature/client | Mocked integration + optional manual check | Complete — accessible chat panel uses the official SDK and `gemini-3.8-flash`; live-key verification remains intentionally manual. |
+| F-02 | At minimum answer: order count, total revenue, best-selling option by units, revenue by payment method, average order value, number of orders that received the coupon, and orders on a given date. | `domain/stats` + tool registry | Stats unit tests + tool routing tests | Complete — seven pure statistics functions and closed declarations are seed- and alternate-data tested. |
+| F-03 | Numerical results come from code only. Gemini function calling selects one pure function over orders JSON and phrases its result; do not ask Gemini to total raw orders. | Stats tools/Gemini orchestration | Contract tests | Complete — model sees declarations/question, validated code executes over orders, and only the compact result returns for phrasing. |
+| F-04 | Results reflect a checkout immediately without reload. | Shared order query state | TC-18 | Complete — every tool execution reloads persisted orders; TC-18 changes 6 to 7 without recreating the assistant. |
+| F-05 | If data cannot answer a question, the bot says so and does not guess. | Assistant policy/tool fallback | TC-20 | Complete — deterministic limitation tool bypasses model phrasing for customer data. |
+| F-06 | Read `VITE_GEMINI_API_KEY` from `.env.local`; never commit a real key. Commit `.env.example` containing only the variable name. Create a task-only free key and place it in the submission form for reviewer use. | Environment/Gemini client | Secret scan + config test | Implementation complete — browser env lookup and key-free example are present; key creation/submission remains a user-owned final action. |
+| F-07 | Show distinct clear messages for missing key, invalid key, quota/429, and network errors. | Assistant UI/error mapper | Unit + RTL | Complete — typed mapping, visible error state, and Retry are tested. |
+| F-08 | Unit-test stats on seed data and mock Gemini in all automated tests. | Tests | Test run | Complete — no automated test performs a live provider call. |
+| F-09 | Complete C2 before Gemini work by mapping each supported question to exact function name, inputs, and output. | `DECISIONS.md` | Review | Complete before integration — exact contract table recorded. |
+| F-10 | Resolve D5 for unsupported “best customer” requests and prevent invented names. | `DECISIONS.md` + assistant guardrails | TC-20 | Complete before integration — closed allowlist plus direct deterministic limitation response. |
 
 ### Part G — Bonus (only after A–F are done)
 
@@ -187,9 +187,9 @@ Canonical configurations:
 | TC-15 | Reservation passes 5:00 (server time) | Stock released; item read-only; countdown matched server, not browser | Complete — exact expiry, offset countdown, edit rejection, and removal assertion |
 | TC-16 | Pay clicked twice quickly | Exactly one order; cart empty; sold stock is not released again | Complete — concurrent Pay acceptance test asserts one new order, one sold reservation, empty cart, and unchanged sold-stock deduction after expiry cleanup |
 | TC-17 | Refresh after checkout, then Download `orders.json` | Orders are still there; file is valid JSON in the shape documented in D6 | Complete — IndexedDB context recreation retains all seven orders and the serialized D6 envelope parses with the exact new order |
-| TC-18 | Ask bot “How many orders?” after seed load, then after one checkout | The two answers differ by exactly one, with no reload | Stats/Gemini mock integration |
-| TC-19 | Ask bot for the best-selling option | Same answer as the stats function; review data will be changed | Stats/tool contract with alternate data |
-| TC-20 | Ask bot “Who is our best customer?” | It explains it cannot know from this data; it does not invent a name | Assistant guardrail test |
+| TC-18 | Ask bot “How many orders?” after seed load, then after one checkout | The two answers differ by exactly one, with no reload | Complete — one assistant instance reads 6 then the newly persisted seventh order. |
+| TC-19 | Ask bot for the best-selling option | Same answer as the stats function; review data will be changed | Complete — assistant result equals the pure function against modified order data. |
+| TC-20 | Ask bot “Who is our best customer?” | It explains it cannot know from this data; it does not invent a name | Complete — exact limitation text, no name, and no model phrasing turn. |
 
 Official tests are immutable: implementation may add coverage but may not weaken these scenarios or expected values.
 
@@ -203,10 +203,10 @@ Full unresolved prompts and completion criteria live in `DECISIONS.md`.
 | D2 | When promotion-sensitive prices lock | Pricing/cart/order semantics | Resolved — successful checkout |
 | D3 | Reservation expiry during edit | Part D edit UX | Resolved — expired item read-only; detached draft preserved |
 | D4 | Order ID/timestamp authority and Pay idempotency | Part E checkout | Resolved — server ID/time; atomic idempotent replay |
-| D5 | Unsupported “best customer” query | Part F assistant safety | Unresolved |
+| D5 | Unsupported “best customer” query | Part F assistant safety | Resolved — closed tools; deterministic limitation |
 | D6 | Stored-order JSON schema and entered-but-not-applied coupon | Part E persistence/export | Resolved — versioned poisha snapshot and explicit coupon outcome |
 | C1 | Float risk and hand rounding of TC-06 VAT 75.48 | `priceCart` | Complete |
-| C2 | Supported assistant questions mapped to function name/input/output | Gemini integration | Unresolved |
+| C2 | Supported assistant questions mapped to function name/input/output | Gemini integration | Complete — exact eight-tool contract |
 
 ## ANSWERS.md — all eight required questions
 
