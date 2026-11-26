@@ -203,7 +203,7 @@ Full unresolved prompts and completion criteria live in `DECISIONS.md`.
 |---|---|---|---|
 | D1 | Two-tab stock race while editing | Part B save conflict UX | Resolved — IndexedDB transaction; draft preserved |
 | D2 | When promotion-sensitive prices lock | Pricing/cart/order semantics | Resolved — successful checkout |
-| D3 | Reservation expiry during edit | Part D edit UX | Resolved — expired item read-only; detached draft preserved |
+| D3 | Reservation expiry during edit | Part D edit UX | Resolved — expired item read-only; unsaved form values remain visible until the user cancels or reconfigures |
 | D4 | Order ID/timestamp authority and Pay idempotency | Part E checkout | Resolved — server ID/time; atomic idempotent replay |
 | D5 | Unsupported “best customer” query | Part F assistant safety | Resolved — closed tools; deterministic limitation |
 | D6 | Stored-order JSON schema and entered-but-not-applied coupon | Part E persistence/export | Resolved — versioned poisha snapshot and explicit coupon outcome |
@@ -216,22 +216,22 @@ Every answer must be produced by running the project's own code and include the 
 
 1. Starting from an empty cart, what is the maximum number of item C you can add? Which ingredient limits it?
 2. What is the cheapest valid configuration and its unit price?
-3. Cart = A ×3, server time 10:30. Give subtotal, chosen discount, VAT, and payable. Then the same at 11:30.
+3. Cart = A x3, server time 10:30. Give subtotal, chosen discount, VAT and payable. Then the same at 11:30.
 4. After TC-10, what is the payable at 11:30?
-5. What is the payable of each seed order, and the total revenue of all six?
-6. What is the best-selling option across seed orders, counted in units (`line quantity × option quantity`)?
+5. The payable of each seed order, and the total revenue of all six.
+6. The best-selling option across the seed orders, counted in units (line quantity x option quantity).
 7. Which payment method brought in the most revenue in the seed orders?
-8. How many seed orders actually received the `MORNING15` discount? Explain every order that has the code but did not get the discount.
+8. How many seed orders actually received the MORNING15 discount? Explain every order that has the code but did not get the discount.
 
 ## Submission deliverables
 
 | ID | Deliverable | Requirement/status |
 |---|---|---|
 | S-01 | Git repository link | Meaningful, small commits; reviewers read history. Pending. |
-| S-02 | `README.md` | Setup, architecture, structure of rules/stock/pricing engines and assistant tools, trade-offs, unfinished work, and actual hours spent. Pending. |
-| S-03 | `DECISIONS.md` | Answers to D1–D6 and C1–C2, in the author's own words; decision answers are 3–6 sentences each. Headings created, answers unresolved. |
-| S-04 | Automated tests | Vitest/RTL/MSW harness, one-command scripts, coverage, and one shell smoke test are complete; Section 9 coverage remains pending. |
-| S-05 | `ANSWERS.md` | All eight code-produced answers; commands/tests included; step-by-step work for Q3 and Q8. Pending. |
+| S-02 | `README.md` | Complete — setup, architecture, engines, lifecycle/concurrency, assistant, persistence, trade-offs, limitations, unfinished work, and the absence of a reliable hours record are documented. |
+| S-03 | `DECISIONS.md` | Complete pending personal review — D1–D6 and C1–C2 match the implementation and each explanation is explicitly marked for the author's own-word review. |
+| S-04 | Automated tests | Complete — deterministic Vitest/RTL/MSW coverage includes all Section 9 cases; exact evidence is in `TEST_REPORT.md`. |
+| S-05 | `ANSWERS.md` | Complete — `npm run answers` computes Q1–Q8 from the production engines; Q2 is exhaustive and Q3/Q8 include working. |
 | S-06 | `.env.example` | Complete: contains only `VITE_GEMINI_API_KEY=`. |
 | S-07 | Gemini key | A new free task-only key goes in the submission form, never Git. Requires explicit user action/permission. |
 | S-08 | Live demo URL | Optional. Do not deploy without user permission. |

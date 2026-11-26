@@ -1,18 +1,22 @@
 # Smart Order Builder — Decisions and Checkpoints
 
-The PDF requires D1–D6 to be answered in the author's own words (3–6 sentences each), implemented consistently, and explainable live. Checkpoints must be completed before their gated features. This planning pass records the exact prompts but intentionally does not choose product behavior on the user's behalf.
+The PDF requires D1–D6 to be answered in the author's own words (3–6 sentences each), implemented consistently, and explainable live. Checkpoints were completed before their gated features. The answers below describe the current implementation, but every section remains explicitly marked for the author's personal review and rewriting before submission.
 
 ## D1 — Concurrent stock loss during edit
 
 **Status: RESOLVED — shared IndexedDB transaction with preserved client draft.**
 
+> **Personal review required:** Approve or rewrite this explanation in your own words before submission.
+
 Two browser tabs share one server. Tab A is editing an item when tab B takes the last eggs. What does tab A see when it saves, and does the user lose anything they typed?
 
-I will keep the authoritative mock-server state in one same-origin IndexedDB record and execute each reserve, edit, remove, or expiry cleanup as one `readwrite` transaction; IndexedDB serializes overlapping writers across tabs, so every operation validates against the latest committed stock. If Tab B takes the last eggs before Tab A saves, Tab A's atomic edit returns every current shortage, while the existing item/reservation stays unchanged and the edit request remains available as the client's unsaved draft. Tab A sees “Stock changed while you were editing. Your changes were not saved. Short: 1 egg,” and can adjust or retry without an automatic overwrite. BroadcastChannel is used only to prompt other tabs to refresh after commits, not as the lock, and this guarantee is limited to tabs in the same browser profile/origin; environments without IndexedDB fall back to explicitly single-context memory rather than pretending to be shared.
+I keep the authoritative mock-server state in one same-origin IndexedDB record and execute each reserve, edit, remove, or expiry cleanup as one `readwrite` transaction; IndexedDB serializes overlapping writers across tabs, so every operation validates against the latest committed stock. If Tab B takes the last eggs before Tab A saves, Tab A's atomic edit returns every current shortage, while the existing item/reservation stays unchanged and the form retains the unsaved values. Tab A sees the current shortage, such as “Short: 1 egg,” and can adjust or retry without an automatic overwrite. BroadcastChannel is used only to prompt other tabs to refresh after commits, not as the lock, and this guarantee is limited to tabs in the same browser profile/origin; environments without IndexedDB fall back to explicitly single-context memory rather than pretending to be shared.
 
 ## D2 — Price lock timing
 
 **Status: RESOLVED — price locks at successful checkout.**
+
+> **Personal review required:** Approve or rewrite this explanation in your own words before submission.
 
 Promotions change while an item sits in the cart (the coupon stops at 11:00). Decide when a price is locked: at Add to Cart, at checkout, or never. The choice must remain consistent with TC-06 and TC-07.
 
@@ -20,15 +24,19 @@ I will lock the price when checkout succeeds, not when an item is added to the c
 
 ## D3 — Reservation expiry during edit
 
-**Status: RESOLVED — expire the reservation, preserve the detached draft.**
+**Status: RESOLVED — expire the reservation and keep unsaved form values visible.**
+
+> **Personal review required:** Approve or rewrite this explanation in your own words before submission.
 
 A reservation expires while the user is in the middle of editing that item. Decide what happens to unsaved changes and what the screen tells the user.
 
-At the exact server-time expiry, the server releases the reservation once and the original cart item becomes read-only but remains removable. If an edit is open or its save reaches the server after expiry, the edit is rejected without changing the expired item, while the client keeps the unsaved configuration as a detached draft. The screen tells the user “This reservation expired. Your changes were not saved; the original item is read-only,” and offers to add the preserved draft as a new item with a new idempotency key and a fresh atomic stock check. Reusing the draft never revives or extends the expired reservation.
+At the exact server-time expiry, the server releases the reservation once and the original cart item becomes read-only but remains removable. If an edit is open or its save reaches the server after expiry, the edit is rejected without changing the expired item, while the form keeps the unsaved configuration visible. The screen tells the user “This reservation expired. Your changes were not saved; the original item is read-only”; the user may inspect those values, but must cancel the expired edit and configure a new Add operation to request a fresh hold. Nothing revives or extends the expired reservation, and the new Add receives a new idempotency key and a fresh atomic stock check.
 
 ## D4 — Order authority and Pay idempotency
 
 **Status: RESOLVED — mock server owns identity, time, and atomic Pay replay.**
+
+> **Personal review required:** Approve or rewrite this explanation in your own words before submission.
 
 Who creates the order ID and timestamp, the browser or the server, and how do you stop a double-click on Pay from creating two orders?
 
@@ -38,6 +46,8 @@ The mock server creates both the order ID and `createdAt` using injected generat
 
 **Status: RESOLVED — closed tool registry with a deterministic limitation response.**
 
+> **Personal review required:** Approve or rewrite this explanation in your own words before submission.
+
 Someone asks “Who is our best customer?” but orders store no customer. Decide what the bot replies and how you stop it from inventing a name.
 
 The assistant exposes a closed, code-owned tool registry and validates both every model-proposed tool name and its arguments before any function can execute. Because the stored-order schema has no customer identity, “Who is our best customer?” is routed to `explainDataLimitation({ subject: 'customer' })`, which returns a fixed result explaining that customer rankings cannot be computed from this data. The system instruction forbids names or facts outside tool results, and the limitation result is rendered directly by TypeScript rather than sent through another model turn, so Gemini has no opportunity to invent a customer. Unknown tools, malformed arguments, and unsupported subjects are rejected safely and covered by the TC-20 test.
@@ -45,6 +55,8 @@ The assistant exposes a closed, code-owned tool registry and validates both ever
 ## D6 — Stored order JSON shape
 
 **Status: RESOLVED — versioned immutable order snapshot in integer poisha.**
+
+> **Personal review required:** Approve or rewrite this explanation in your own words before submission.
 
 Design the JSON shape of a stored order. Which fields, which money unit, and how do you record a coupon that was entered but not applied? Document the shape here.
 
@@ -94,6 +106,8 @@ interface OrdersExport {
 
 **Status: COMPLETE — integer-poisha calculation defined before `priceCart`.**
 
+> **Personal review required:** Approve or rewrite this checkpoint answer in your own words before submission.
+
 Explain why storing 679.50 as a JavaScript float is risky for TC-06, and show by hand how the VAT of 75.48 in TC-06 is rounded.
 
 JavaScript numbers use binary floating point, so many decimal currency fractions cannot be represented exactly; repeated percentage operations can produce values just below or above a half-poisha boundary and make an ordinary `Math.round` produce the wrong assessment result. I will therefore store 679.50 BDT as the exact integer `67,950` poisha and perform each percentage as integer numerator/denominator arithmetic with explicit half-up rounding.
@@ -103,6 +117,8 @@ For TC-06, the cart subtotal is 1,659.50 BDT = `165,950` poisha and C2 removes 1
 ## C2 — Assistant question-to-function contract
 
 **Status: COMPLETE — closed deterministic statistics-tool contract.**
+
+> **Personal review required:** Approve or rewrite this checkpoint answer in your own words before submission.
 
 List every question the bot supports and the exact function (name, inputs, output) that answers it.
 
