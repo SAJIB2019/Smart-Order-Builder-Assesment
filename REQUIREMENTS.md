@@ -10,7 +10,7 @@ The assessment is a logic assessment, not a design assessment. A plain, clean, r
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Complete — React 19, strict TypeScript, Vite, MSW, Vitest/RTL, coverage, and the supported `gemini-3.8-flash` SDK client are configured. |
+| G-01 | React 18+, strict TypeScript, Vite, MSW, Vitest + React Testing Library, Gemini API free tier/Flash model. | Tooling/app shell | Config inspection; build; tests | Complete — React 19, strict TypeScript, Vite, MSW, Vitest/RTL, coverage, and live-verified Flash-Lite SDK models are configured. |
 | G-02 | No real backend; MSW or a tiny in-memory mock acts as server. Browser Gemini calls are allowed. | `infrastructure/mock-api` | Architecture review | Complete — all application data operations remain in browser MSW/persistent mock-server services; only the assessment-authorized Gemini browser call leaves the app. |
 | G-03 | AI tools are allowed, but every line must be explainable, debuggable, and changeable live. | Entire codebase | Review/interview readiness | Complete — UI orchestration, pure domain functions, typed clients, and server-owned transactions retain explicit interview-ready boundaries. |
 | G-04 | All Appendix A groups, options, rules, ingredients, stock, and promotions come from the mock API. The app must continue to work with a different menu fixture without code changes. | Menu API + generic domain functions/UI | Alternate-fixture tests | Complete — engines and UI render supplied product/groups/options/rules/recipes/promotions; an alternate API menu test changes product, group, and option names without component changes. |
@@ -98,13 +98,13 @@ Exact pricing order:
 
 | ID | Requirement | Planned owner | Verification | Status |
 |---|---|---|---|---|
-| F-01 | Add staff chat for plain-English sales questions; Bangla is optional. Use Gemini free tier with a Flash model. | Assistant feature/client | Mocked integration + optional manual check | Complete — accessible chat panel uses the official SDK and `gemini-3.8-flash`; live-key verification remains intentionally manual. |
+| F-01 | Add staff chat for plain-English sales questions; Bangla is optional. Use Gemini free tier with a Flash model. | Assistant feature/client | Mocked integration + optional manual check | Complete — accessible chat panel uses the official SDK with `gemini-3.5-flash-lite` and a `gemini-3.1-flash-lite` fallback; two live browser questions passed. |
 | F-02 | At minimum answer: order count, total revenue, best-selling option by units, revenue by payment method, average order value, number of orders that received the coupon, and orders on a given date. | `domain/stats` + tool registry | Stats unit tests + tool routing tests | Complete — seven pure statistics functions and closed declarations are seed- and alternate-data tested. |
 | F-03 | Numerical results come from code only. Gemini function calling selects one pure function over orders JSON and phrases its result; do not ask Gemini to total raw orders. | Stats tools/Gemini orchestration | Contract tests | Complete — model sees declarations/question, validated code executes over orders, and only the compact result returns for phrasing. |
 | F-04 | Results reflect a checkout immediately without reload. | Shared order query state | TC-18 | Complete — every tool execution reloads persisted orders; TC-18 changes 6 to 7 without recreating the assistant. |
 | F-05 | If data cannot answer a question, the bot says so and does not guess. | Assistant policy/tool fallback | TC-20 | Complete — deterministic limitation tool bypasses model phrasing for customer data. |
 | F-06 | Read `VITE_GEMINI_API_KEY` from `.env.local`; never commit a real key. Commit `.env.example` containing only the variable name. Create a task-only free key and place it in the submission form for reviewer use. | Environment/Gemini client | Secret scan + config test | Implementation complete — browser env lookup and key-free example are present; key creation/submission remains a user-owned final action. |
-| F-07 | Show distinct clear messages for missing key, invalid key, quota/429, and network errors. | Assistant UI/error mapper | Unit + RTL | Complete — typed mapping, visible error state, and Retry are tested. |
+| F-07 | Show distinct clear messages for missing key, invalid key, quota/429, and network errors. | Assistant UI/error mapper | Unit + RTL | Complete — typed mapping, visible error state, Retry, and a distinct retryable provider-503/high-demand message are tested. |
 | F-08 | Unit-test stats on seed data and mock Gemini in all automated tests. | Tests | Test run | Complete — no automated test performs a live provider call. |
 | F-09 | Complete C2 before Gemini work by mapping each supported question to exact function name, inputs, and output. | `DECISIONS.md` | Review | Complete before integration — exact contract table recorded. |
 | F-10 | Resolve D5 for unsupported “best customer” requests and prevent invented names. | `DECISIONS.md` + assistant guardrails | TC-20 | Complete before integration — closed allowlist plus direct deterministic limitation response. |
@@ -191,7 +191,7 @@ Canonical configurations:
 | TC-19 | Ask bot for the best-selling option | Same answer as the stats function; review data will be changed | Complete — official seeds are pinned to Fried ×10, then changed review data produces Scrambled ×17 and equals the pure function. |
 | TC-20 | Ask bot “Who is our best customer?” | It explains it cannot know from this data; it does not invent a name | Complete — exact limitation text, no name, and no model phrasing turn. |
 
-Independent QA evidence and the exact executed result for every official case are recorded in `TEST_REPORT.md`. The final acceptance-only run passed 7 files / 24 tests; the final-audit full regression run passed 37 files / 165 tests.
+Independent QA evidence and the exact executed result for every official case are recorded in `TEST_REPORT.md`. The final acceptance-only run passed 7 files / 24 tests; the post-Gemini-fix full regression run passed 37 files / 169 tests.
 
 Official tests are immutable: implementation may add coverage but may not weaken these scenarios or expected values.
 

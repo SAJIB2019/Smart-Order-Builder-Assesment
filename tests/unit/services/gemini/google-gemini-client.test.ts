@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { SALES_TOOL_DEFINITIONS } from '../../../../src/domain/stats/sales-tools'
 import { SalesAssistantError } from '../../../../src/services/gemini/assistant-error'
-import { GoogleGeminiClient } from '../../../../src/services/gemini/google-gemini-client'
+import {
+  GEMINI_FLASH_FALLBACK_MODEL,
+  GEMINI_FLASH_MODEL,
+  GoogleGeminiClient,
+} from '../../../../src/services/gemini/google-gemini-client'
 
 function response(value: Partial<GenerateContentResponse>) {
   return value as GenerateContentResponse
@@ -66,6 +70,143 @@ describe('GoogleGeminiClient', () => {
     const serialized = JSON.stringify(generateContent.mock.calls[0]?.[0])
     expect(serialized).toContain('"orderCount":6')
     expect(serialized).not.toContain('ORD-1001')
+  })
+
+  it('falls back to Flash Lite when the primary Flash model is unavailable', async () => {
+    const generateContent = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError({ status: 503, message: 'busy' }))
+      .mockResolvedValueOnce(
+        response({
+          functionCalls: [
+            { id: 'call-fallback', name: 'getOrderCount', args: {} },
+          ],
+          candidates: [
+            {
+              content: {
+                role: 'model',
+                parts: [
+                  {
+                    functionCall: {
+                      id: 'call-fallback',
+                      name: 'getOrderCount',
+                      args: {},
+                    },
+                    thoughtSignature: 'signed-provider-state',
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(response({ text: 'Seven orders.' }))
+    const client = new GoogleGeminiClient({
+      apiKey: 'test-key',
+      generator: { generateContent },
+    })
+
+    const selection = await client.selectTool(
+      'How many orders?',
+      SALES_TOOL_DEFINITIONS,
+    )
+    expect(selection).toMatchObject({ name: 'getOrderCount' })
+    await expect(
+      client.phraseToolResult(selection, 'getOrderCount', { orderCount: 7 }),
+    ).resolves.toBe('Seven orders.')
+    expect(generateContent).toHaveBeenCalledTimes(3)
+    expect(
+      generateContent.mock.calls.map(([request]) => request.model),
+    ).toEqual([
+      GEMINI_FLASH_MODEL,
+      GEMINI_FLASH_FALLBACK_MODEL,
+      GEMINI_FLASH_FALLBACK_MODEL,
+    ])
+    expect(JSON.stringify(generateContent.mock.calls[2]?.[0])).toContain(
+      'signed-provider-state',
+    )
+  })
+
+  it('does not misreport a generic bad request as an invalid API key', async () => {
+    const client = new GoogleGeminiClient({
+      apiKey: 'test-key',
+      fallbackModel: null,
+      generator: {
+        generateContent: vi
+          .fn()
+          .mockRejectedValue(
+            new ApiError({ status: 400, message: 'bad input' }),
+          ),
+      },
+    })
+
+    await expect(
+      client.selectTool('How many orders?', SALES_TOOL_DEFINITIONS),
+    ).rejects.toMatchObject({ code: 'unexpectedModelResponse' })
+  })
+
+  it('reports high demand clearly when both Flash models are unavailable', async () => {
+    const generateContent = vi
+      .fn()
+      .mockRejectedValue(new ApiError({ status: 503, message: 'busy' }))
+    const client = new GoogleGeminiClient({
+      apiKey: 'test-key',
+      generator: { generateContent },
+    })
+
+    await expect(
+      client.selectTool('question', SALES_TOOL_DEFINITIONS),
+    ).rejects.toMatchObject({
+      code: 'serviceUnavailable',
+      message:
+        'Gemini is temporarily unavailable due to high demand. Please retry later.',
+    })
+    expect(generateContent).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not switch models after a signed function call', async () => {
+    const generateContent = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response({
+          functionCalls: [
+            { id: 'call-primary', name: 'getOrderCount', args: {} },
+          ],
+          candidates: [
+            {
+              content: {
+                role: 'model',
+                parts: [
+                  {
+                    functionCall: {
+                      id: 'call-primary',
+                      name: 'getOrderCount',
+                      args: {},
+                    },
+                    thoughtSignature: 'primary-signature',
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      )
+      .mockRejectedValueOnce(new ApiError({ status: 503, message: 'busy' }))
+    const client = new GoogleGeminiClient({
+      apiKey: 'test-key',
+      generator: { generateContent },
+    })
+    const selection = await client.selectTool(
+      'How many orders?',
+      SALES_TOOL_DEFINITIONS,
+    )
+
+    await expect(
+      client.phraseToolResult(selection, 'getOrderCount', { orderCount: 7 }),
+    ).rejects.toMatchObject({ code: 'serviceUnavailable' })
+    expect(
+      generateContent.mock.calls.map(([request]) => request.model),
+    ).toEqual([GEMINI_FLASH_MODEL, GEMINI_FLASH_MODEL])
   })
 
   it.each([

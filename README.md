@@ -115,7 +115,7 @@ question → Gemini selects one allowlisted tool → TypeScript validates argume
          → only the compact computed result returns to Gemini for phrasing
 ```
 
-Gemini never receives raw orders for arithmetic. Tool names and arguments use a closed registry, unsupported customer questions return a deterministic limitation directly from TypeScript, and every automated test injects a mocked model client. Missing keys, invalid keys, quota/429 responses, network failures, invalid tool calls, and unexpected responses have distinct handling and Retry states.
+Gemini never receives raw orders for arithmetic. Tool names and arguments use a closed registry, unsupported customer questions return a deterministic limitation directly from TypeScript, and every automated test injects a mocked model client. The client uses `gemini-3.5-flash-lite`, retries a provider `503` once with `gemini-3.1-flash-lite`, preserves the provider's signed function-call part for the result turn, and reports persistent high demand clearly. Missing keys, invalid keys, quota/429 responses, service unavailability, network failures, invalid tool calls, and unexpected responses have distinct handling and Retry states.
 
 ## Persistence and order JSON
 
@@ -135,17 +135,17 @@ The unfinished builder configuration is stored separately in versioned local-sto
 ## Known limitations
 
 - There is no real authentication, payment processing, backend database, or cross-device synchronization.
-- The Gemini provider was fully mocked in automated tests; a live provider call was not verified because no real key was read or committed.
+- Automated tests mock Gemini deterministically. A live development-browser smoke test on 2026-11-26 verified order-count and total-revenue function calls, but provider capacity remains externally controlled.
 - Persisted schemas are versioned; the newly added cart version defaults safely for pre-bonus IndexedDB records, but there is no general multi-version migration framework.
 - In environments without IndexedDB, the fallback store is explicitly single-context and in-memory.
 - The assessment filename remains `Assesment.pdf` to preserve the supplied artifact.
 
 ## Unfinished features
 
-Parts A–G are implemented and all mandatory acceptance tests pass. Submission is still blocked until the author personally reviews D1–D6 and C1–C2 in `DECISIONS.md`; repository push, deployment, Gemini-key creation, a live Gemini-provider check, and the one-shot submission are intentionally left to the user and require explicit permission.
+Parts A–G are implemented and all mandatory acceptance tests pass. Submission is still blocked until the author personally reviews D1–D6 and C1–C2 in `DECISIONS.md`; repository push, deployment, placing the task-only Gemini key in the submission form, and the one-shot submission are intentionally left to the user and require explicit permission.
 
 ## Verification and time record
 
-The final independent requirement audit is in [FINAL_AUDIT.md](./FINAL_AUDIT.md), with exact acceptance evidence in [TEST_REPORT.md](./TEST_REPORT.md). Run the commands above in the current checkout for reproducible results; live Gemini behavior remains separate from mocked verification.
+The final independent requirement audit is in [FINAL_AUDIT.md](./FINAL_AUDIT.md), with exact acceptance evidence in [TEST_REPORT.md](./TEST_REPORT.md). Run the commands above in the current checkout for reproducible results; live Gemini smoke-test evidence remains separate from deterministic automated verification.
 
 Actual implementation hours were not reliably recorded, so this README does not invent an estimate.

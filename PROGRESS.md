@@ -20,7 +20,7 @@ Last updated: 2026-11-26 (Asia/Dhaka)
 | Part C | Complete | Pure six-step engine, typed `/price`, exact simulated latency/failure defaults, debounced race-safe hook, Retry/preserved configuration UI, pricing breakdown, and TC-05–TC-07/TC-12 pass. |
 | Part D | Complete | Atomic idempotent add/edit/remove/expiry, five-minute holds, server-offset countdowns, shared IndexedDB transactions, D1/D3, and TC-13–TC-15 pass. |
 | Part E | Complete | Atomic Pay, sold-stock conversion, seed initialization/historical pricing, persistent versioned orders, JSON download, D4/D6, and TC-16–TC-17 pass. |
-| Part F | Complete | Pure statistics, closed Gemini function calling, latest-order reads, chat/error/Retry UI, D5/C2, and TC-18–TC-20 pass. |
+| Part F | Complete | Pure statistics, closed Gemini function calling, Flash-Lite 503 fallback, signed tool continuation, latest-order reads, chat/error/Retry UI, live smoke test, D5/C2, and TC-18–TC-20 pass. |
 | Complete UI | Complete | Responsive builder, cart/edit/reservations, coupon-aware checkout, orders history/export, and assistant are connected to authoritative APIs. |
 | Part G | Complete | Refresh-safe reservations, transactional cart versions/conflict reload, and revalidated unfinished drafts are implemented and deterministically tested. |
 | Required `ANSWERS.md` | Complete | `npm run answers` computes Q1–Q8 from official data and production engines; Q3/Q8 include working. |
@@ -297,9 +297,20 @@ Last updated: 2026-11-26 (Asia/Dhaka)
 | 2026-11-26 | Production preview desktop workflow | Passed at 1440×1000: configure, reserve, edit, coupon, pay, refresh, order history, valid seven-order JSON download. |
 | 2026-11-26 | Production preview mobile workflow | Passed at 390×844: all sections rendered and document/body width equaled viewport width. |
 
+### 2026-11-26 — Live Gemini provider recovery
+
+- Scope completed: Reproduced persistent provider failures with the ignored local key; replaced the unavailable/hanging standard Flash model with a live-verified Flash-Lite primary and fallback; preserved Gemini thought signatures between function-call turns; corrected 400/503 error classification.
+- Files/modules changed: `src/services/gemini/google-gemini-client.ts`, `src/services/gemini/assistant-error.ts`, Gemini unit tests, and aligned audit/requirements/readme/test documentation.
+- Requirements/tests covered: Part F free-tier Flash function calling, code-owned numerical answers, secure local key handling, and clear provider failures.
+- Commands run and results: focused Gemini tests 10/10; typecheck PASS; lint PASS; full tests 37 files/169 tests; coverage 84.89% statements, 76.03% branches, 87.95% functions, 86.81% lines; build PASS; answers PASS; format check PASS after removing tool snapshots.
+- Browser/external behavior verified: Live development-browser questions returned “There are 7 orders.” and “Total revenue is 546,800 poisha.” The key value was never printed or committed.
+- Decisions/risks/remaining issues: Gemini capacity/latency remains external; automated tests stay mocked and deterministic; author review and submission actions remain open.
+- Commit: Focused fix commit created after verification; hash reported in the final handoff.
+- Next step: User reviews D1–D6/C1–C2 and explicitly authorizes any push/deploy/submission.
+
 ## Next step (wait for user instruction)
 
-Wait for the user's next instruction. Parts A–G, the complete UI, TC-01–TC-20 verification, `ANSWERS.md`, and `README.md` are complete. The user must personally review `DECISIONS.md`; a live Gemini-key check, push/deployment, and the one-shot submission remain permission-gated or user-owned.
+Wait for the user's next instruction. Parts A–G, the complete UI, TC-01–TC-20 verification, `ANSWERS.md`, `README.md`, and a live Gemini smoke test are complete. The user must personally review `DECISIONS.md`; push/deployment, external key entry, and the one-shot submission remain permission-gated or user-owned.
 
 ## Update template for every future implementation step
 

@@ -8,6 +8,10 @@ export interface ModelToolSelection {
   readonly args: unknown
   readonly callId: string
   readonly question: string
+  readonly continuation?: {
+    readonly model: string
+    readonly functionCallPart: unknown
+  }
 }
 
 export interface SalesAssistantModelClient {

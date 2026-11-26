@@ -2,6 +2,7 @@ export type SalesAssistantErrorCode =
   | 'missingApiKey'
   | 'invalidApiKey'
   | 'quotaExceeded'
+  | 'serviceUnavailable'
   | 'network'
   | 'invalidToolArguments'
   | 'unsupportedTool'
@@ -13,6 +14,8 @@ const messages: Record<SalesAssistantErrorCode, string> = {
     'The sales assistant is unavailable because VITE_GEMINI_API_KEY is not configured.',
   invalidApiKey: 'The Gemini API key is invalid or not authorized.',
   quotaExceeded: 'Gemini quota is currently exhausted. Please retry later.',
+  serviceUnavailable:
+    'Gemini is temporarily unavailable due to high demand. Please retry later.',
   network:
     'The sales assistant could not reach Gemini. Check the network and retry.',
   invalidToolArguments: 'Gemini returned invalid arguments for a sales tool.',
@@ -35,6 +38,7 @@ export class SalesAssistantError extends Error {
       options?.retryable ??
       [
         'quotaExceeded',
+        'serviceUnavailable',
         'network',
         'ordersUnavailable',
         'unexpectedModelResponse',
