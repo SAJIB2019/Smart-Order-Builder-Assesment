@@ -27,7 +27,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open the URL printed by Vite. The order builder works without Gemini; the sales assistant requires a task-scoped Gemini key.
+Open the URL printed by Vite. The browser MSW server starts in development and production/preview builds, so the order builder works without Gemini; the sales assistant requires a task-scoped Gemini key.
 
 ## Environment variables
 
@@ -142,10 +142,10 @@ The unfinished builder configuration is stored separately in versioned local-sto
 
 ## Unfinished features
 
-Parts A–G and all mandatory acceptance tests are complete. Repository push, deployment, Gemini-key creation, a live Gemini-provider check, and the one-shot assessment submission are intentionally left to the user and require explicit permission.
+Parts A–G are implemented and all mandatory acceptance tests pass. Submission is still blocked until the author personally reviews D1–D6 and C1–C2 in `DECISIONS.md`; repository push, deployment, Gemini-key creation, a live Gemini-provider check, and the one-shot submission are intentionally left to the user and require explicit permission.
 
 ## Verification and time record
 
-The latest independent report is in [TEST_REPORT.md](./TEST_REPORT.md). Run the commands above in the current checkout for reproducible results; live Gemini behavior remains separate from mocked verification.
+The final independent requirement audit is in [FINAL_AUDIT.md](./FINAL_AUDIT.md), with exact acceptance evidence in [TEST_REPORT.md](./TEST_REPORT.md). Run the commands above in the current checkout for reproducible results; live Gemini behavior remains separate from mocked verification.
 
 Actual implementation hours were not reliably recorded, so this README does not invent an estimate.

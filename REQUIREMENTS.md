@@ -4,7 +4,7 @@
 
 This document traces the complete four-page `Assesment.pdf` and the supplied `orders.seed.json`. The PDF is authoritative. Status values are `Pending`, `Partial`, `Complete`, `Blocked by decision/checkpoint`, or `Bonus gated`. Parts A–F and the complete staff-facing interface are implemented over typed mock APIs, pure engines, atomic cart/reservation/checkout mutations, persistent versioned orders, and shared same-origin browser state.
 
-The assessment is a logic assessment, not a design assessment. A plain, clean, responsive UI is sufficient. The primary grading targets are exact Section 9 results, correctness under races/stock pressure/edits, and the developer's ability to explain the decisions and code.
+The assessment is a logic assessment, not a design assessment. A plain, clean, responsive UI is sufficient. The primary grading targets are exact Section 9 results, correctness under races/stock pressure/edits, and the developer's ability to explain the decisions and code. The final independent evidence is recorded in `FINAL_AUDIT.md`; implementation checks pass, but submission readiness remains blocked until the author personally reviews D1–D6 and C1–C2 in their own words.
 
 ## Global constraints
 
@@ -191,7 +191,7 @@ Canonical configurations:
 | TC-19 | Ask bot for the best-selling option | Same answer as the stats function; review data will be changed | Complete — official seeds are pinned to Fried ×10, then changed review data produces Scrambled ×17 and equals the pure function. |
 | TC-20 | Ask bot “Who is our best customer?” | It explains it cannot know from this data; it does not invent a name | Complete — exact limitation text, no name, and no model phrasing turn. |
 
-Independent QA evidence and the exact executed result for every official case are recorded in `TEST_REPORT.md`. The final acceptance-only run passed 7 files / 24 tests; the full regression run passed 34 files / 155 tests.
+Independent QA evidence and the exact executed result for every official case are recorded in `TEST_REPORT.md`. The final acceptance-only run passed 7 files / 24 tests; the final-audit full regression run passed 37 files / 165 tests.
 
 Official tests are immutable: implementation may add coverage but may not weaken these scenarios or expected values.
 
@@ -229,7 +229,7 @@ Every answer must be produced by running the project's own code and include the 
 |---|---|---|
 | S-01 | Git repository link | Meaningful, small commits; reviewers read history. Pending. |
 | S-02 | `README.md` | Complete — setup, architecture, engines, lifecycle/concurrency, assistant, persistence, trade-offs, limitations, unfinished work, and the absence of a reliable hours record are documented. |
-| S-03 | `DECISIONS.md` | Complete pending personal review — D1–D6 and C1–C2 match the implementation and each explanation is explicitly marked for the author's own-word review. |
+| S-03 | `DECISIONS.md` | Blocked — D1–D6 and C1–C2 technically match the implementation, but every explanation is still explicitly marked for the author's mandatory own-word review. |
 | S-04 | Automated tests | Complete — deterministic Vitest/RTL/MSW coverage includes all Section 9 cases; exact evidence is in `TEST_REPORT.md`. |
 | S-05 | `ANSWERS.md` | Complete — `npm run answers` computes Q1–Q8 from the production engines; Q2 is exhaustive and Q3/Q8 include working. |
 | S-06 | `.env.example` | Complete: contains only `VITE_GEMINI_API_KEY=`. |

@@ -6,7 +6,7 @@
 - Acceptance command: `npx vitest run tests/acceptance --reporter=verbose`.
 - Acceptance result: **7 files passed, 24 tests passed**. TC-08 through TC-11 intentionally execute at both pure-domain and authoritative-service levels.
 - Pre-bonus gate: **35 files passed, 156 tests passed**, followed by **7 acceptance files / 24 acceptance executions passed** for TC-01–TC-20.
-- Current full regression result: **36 files passed, 164 tests passed**, including the executable Section 10 answer generator and deterministic Part G coverage.
+- Current final-audit regression result: **37 files passed, 165 tests passed**, including the executable Section 10 answer generator, deterministic Part G coverage, and production mock-server startup regression.
 - Tests use injected clocks/failures/IDs, fake timers, controlled promises, MSW, React Testing Library, fake IndexedDB, and mocked Gemini model clients. No live Gemini request or uncontrolled test randomness is used.
 
 ## Canonical Section 9 configurations
@@ -64,7 +64,7 @@
 | ----------------------- | --------------------------------------------------------------------------- |
 | `npm run typecheck`     | PASS                                                                        |
 | `npm run lint`          | PASS, zero warnings                                                         |
-| `npm run test`          | PASS, 36 files / 164 tests                                                  |
-| `npm run test:coverage` | PASS, 84.41% statements / 74.44% branches / 87.99% functions / 86.40% lines |
+| `npm run test`          | PASS, 37 files / 165 tests                                                  |
+| `npm run test:coverage` | PASS, 84.61% statements / 75.13% branches / 87.83% functions / 86.54% lines |
 | `npm run build`         | PASS, Vite production build completed                                       |
 | `npm run format:check`  | PASS                                                                        |

@@ -172,6 +172,16 @@ Last updated: 2026-11-26 (Asia/Dhaka)
 - Added a schema-versioned unfinished-configuration repository. Restored drafts are parsed and revalidated against current API menu rules and stock, while incomplete or unavailable drafts remain unreserved and cannot bypass normal Add validation.
 - Added deterministic fake-IndexedDB refresh/two-tab tests plus RTL coverage for unfinished-draft restoration and automatic authoritative reload after a conflict.
 
+### 2026-11-26 — Final independent principal-engineer audit
+
+- Re-read all four image-only PDF pages visually and audited Parts A–G, TC-01–TC-20, Appendix A, the supplied six-order seed file, Q1–Q8, D1–D6, C1–C2, source, tests, documentation, environment handling, and Git history.
+- Found and fixed a mandatory production defect: `src/main.tsx` started MSW only in development, leaving the production/preview application without menu/cart/order APIs. Added a base-aware all-build startup module and regression test.
+- Found and fixed an authoritative-read inconsistency: `/api/stock` bypassed reservation expiry cleanup. Consolidated it through `CartService.getInventory()` and extended the cart API test to prove a stock read expires and releases a due hold.
+- Verified the current Gemini SDK configuration against current official documentation: `gemini-3.8-flash`, forced `ANY` function calling, and allowed function names are supported. No live key/provider call was made.
+- Manually verified the production bundle at 1440×1000 and 390×844. Completed configure → reserve → edit → coupon → checkout → order refresh → JSON download; parsed the seven-order export; refreshed and retained the order; mobile document/body width matched the viewport.
+- A clean production reload had zero console errors/warnings. Two `/price` 503 entries during the workflow were the required random failure simulation and were handled by the UI without losing configuration.
+- Created `FINAL_AUDIT.md`. Final submission status is not ready because the assessment author's own-word review of D1–D6/C1–C2 remains explicitly incomplete; live Gemini, push, deploy, and submission remain user/permission-gated.
+
 ## Verification log
 
 | Date | Check | Result |
@@ -276,6 +286,16 @@ Last updated: 2026-11-26 (Asia/Dhaka)
 | 2026-11-26 | Part G final `npm run build` | Passed; Vite production bundle generated successfully. |
 | 2026-11-26 | Part G final `npm run answers` | Passed: Q1–Q8 recomputed from production engines. |
 | 2026-11-26 | Part G final `npm run format:check` | Passed. |
+| 2026-11-26 | Final audit `npm run typecheck` | Passed with strict TypeScript. |
+| 2026-11-26 | Final audit `npm run lint` | Passed with zero warnings. |
+| 2026-11-26 | Final audit full `npm run test` | Passed: 37 files, 165 tests. |
+| 2026-11-26 | Final audit acceptance-only run | Passed: 7 files, 24 executions covering TC-01–TC-20. |
+| 2026-11-26 | Final audit `npm run test:coverage` | Passed: 84.61% statements, 75.13% branches, 87.83% functions, 86.54% lines. |
+| 2026-11-26 | Final audit `npm run build` | Passed; production bundle includes lazy browser MSW and Gemini assistant chunks. |
+| 2026-11-26 | Final audit `npm run answers` | Passed: Q1–Q8 recomputed from production engines and official data. |
+| 2026-11-26 | Final audit `npm run format:check` | Passed. |
+| 2026-11-26 | Production preview desktop workflow | Passed at 1440×1000: configure, reserve, edit, coupon, pay, refresh, order history, valid seven-order JSON download. |
+| 2026-11-26 | Production preview mobile workflow | Passed at 390×844: all sections rendered and document/body width equaled viewport width. |
 
 ## Next step (wait for user instruction)
 
