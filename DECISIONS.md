@@ -36,11 +36,11 @@ The mock server creates both the order ID and `createdAt` using injected generat
 
 ## D5 — Unsupported “best customer” query
 
-**Status: UNRESOLVED — blocks final assistant guardrails in Part F.**
+**Status: RESOLVED — closed tool registry with a deterministic limitation response.**
 
 Someone asks “Who is our best customer?” but orders store no customer. Decide what the bot replies and how you stop it from inventing a name.
 
-Resolution must cover tool availability/schema checks, a deterministic unsupported-data result, model instructions, and a test matching TC-20.
+The assistant exposes a closed, code-owned tool registry and validates both every model-proposed tool name and its arguments before any function can execute. Because the stored-order schema has no customer identity, “Who is our best customer?” is routed to `explainDataLimitation({ subject: 'customer' })`, which returns a fixed result explaining that customer rankings cannot be computed from this data. The system instruction forbids names or facts outside tool results, and the limitation result is rendered directly by TypeScript rather than sent through another model turn, so Gemini has no opportunity to invent a customer. Unknown tools, malformed arguments, and unsupported subjects are rejected safely and covered by the TC-20 test.
 
 ## D6 — Stored order JSON shape
 
@@ -102,8 +102,19 @@ For TC-06, the cart subtotal is 1,659.50 BDT = `165,950` poisha and C2 removes 1
 
 ## C2 — Assistant question-to-function contract
 
-**Status: UNRESOLVED — hard gate: complete before writing Gemini integration.**
+**Status: COMPLETE — closed deterministic statistics-tool contract.**
 
 List every question the bot supports and the exact function (name, inputs, output) that answers it.
 
-At minimum the mapping must cover order count, total revenue, best-selling option by units, revenue by payment method, average order value, number of orders that actually received the coupon, and orders on a given date. It must also define an unsupported-data function/result for questions such as “Who is our best customer?”
+Gemini receives only the function declarations below and the staff question; it never receives the orders JSON or calculates a number. After one validated selection, TypeScript loads the latest persisted orders, executes the matching pure function, and returns a compact computed result for Gemini to phrase. Every monetary result is integer poisha, best-selling units are `line quantity × option quantity`, coupon usage requires `coupon.applied === true`, and dates are interpreted in `Asia/Dhaka`.
+
+| Supported question | Pure function and inputs | Tool arguments | Output |
+|---|---|---|---|
+| “How many orders?” | `getOrderCount(orders)` | `{}` | `{ orderCount: number }` |
+| “What is total revenue?” | `getTotalRevenue(orders)` | `{}` | `{ totalRevenuePoisha: Poisha, currency: 'BDT', moneyUnit: 'poisha' }` |
+| “What is the best-selling option?” | `getBestSellingOption(orders)` | `{}` | `{ optionId, optionName, units } \| null` |
+| “Show revenue by payment method.” | `getRevenueByPaymentMethod(orders)` | `{}` | `{ cardPoisha, bkashPoisha, cashPoisha, currency: 'BDT', moneyUnit: 'poisha' }` |
+| “What is average order value?” | `getAverageOrderValue(orders)` | `{}` | `{ averageOrderValuePoisha, orderCount, totalRevenuePoisha, currency: 'BDT', moneyUnit: 'poisha' }` |
+| “How many orders actually received the coupon?” | `getCouponUsageCount(orders)` | `{}` | `{ couponUsageCount: number }` |
+| “How many orders were placed on YYYY-MM-DD?” | `getOrdersByDate(orders, date, 'Asia/Dhaka')` | `{ date: string }`, strict `YYYY-MM-DD` | `{ date, timeZone: 'Asia/Dhaka', orderCount, orderIds }` |
+| Unsupported or customer-dependent question | `explainDataLimitation(subject)` | `{ subject: 'customer' \| 'unsupported' }` | `{ supported: false, subject, message }` |
